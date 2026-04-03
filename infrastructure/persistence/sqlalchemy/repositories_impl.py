@@ -44,6 +44,18 @@ class EstablishmentRepositoryImpl:
             )
         )
 
+    async def update(self, est: Establishment) -> None:
+        """Persiste les modifications d'un établissement existant."""
+        row = await self._session.get(EstablishmentModel, est.id)
+        if row is None:
+            return
+        row.name = est.name
+        row.center_lat = est.center_lat
+        row.center_lon = est.center_lon
+        row.radius_strict_m = est.radius_strict_m
+        row.radius_relaxed_m = est.radius_relaxed_m
+        row.geometry_version = est.geometry_version
+
 
 class MissionRepositoryImpl:
     def __init__(self, session: AsyncSession) -> None:
@@ -93,6 +105,10 @@ class MissionRepositoryImpl:
         if mission.host_token is not None:
             row.host_token = mission.host_token
         row.sms_code = mission.sms_code
+
+    async def update(self, mission: Mission) -> None:
+        """Alias explicite pour la mise à jour partielle d'une mission existante."""
+        await self.save(mission)
 
 
 class SiteVisitRepositoryImpl:

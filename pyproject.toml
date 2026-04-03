@@ -39,6 +39,8 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
+# E501 ignoré : les chaînes de documentation Markdown ne peuvent pas être wrappées à 100 chars.
+ignore = ["E501"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
