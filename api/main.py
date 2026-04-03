@@ -65,13 +65,26 @@ def create_app() -> FastAPI:
         return JSONResponse(status_code=status_code, content=body)
 
     origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=origins or ["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+    # CORS: allow_credentials=True est incompatible avec allow_origins=["*"].
+    # Si aucune origine n'est configurée (développement sans .env), on désactive
+    # les credentials pour rester conforme à la spec CORS et éviter une erreur
+    # de navigateur.
+    if origins:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=origins,
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+    else:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_credentials=False,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
     app.include_router(api_router, prefix=settings.api_prefix)
     return app
 
