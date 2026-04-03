@@ -17,8 +17,11 @@ from infrastructure.persistence.sqlalchemy.base import Base
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     settings = get_settings()
     engine = create_async_engine(settings.database_url, echo=settings.database_echo)
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    if settings.auto_create_tables:
+        # Dev / tests : création directe des tables (pas de migrations Alembic).
+        # Production : SIGIS_AUTO_CREATE_TABLES=false → utiliser `alembic upgrade head`.
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
     app.state.engine = engine
     app.state.session_factory = async_sessionmaker(engine, expire_on_commit=False)
     yield

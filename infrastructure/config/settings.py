@@ -9,6 +9,8 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000"
     database_url: str = "sqlite+aiosqlite:///./sigis.db"
     database_echo: bool = False
+    # En production : mettre à false et utiliser `alembic upgrade head`
+    auto_create_tables: bool = True
 
 
 def get_settings() -> Settings:
