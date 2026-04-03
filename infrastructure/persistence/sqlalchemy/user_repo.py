@@ -10,6 +10,12 @@ class UserRepositoryImpl:
         self._session = session
 
     async def ensure_exists(self, user_id: UUID) -> None:
+        """Crée un utilisateur fantôme si l'id est inconnu (mode dev/test uniquement)."""
         row = await self._session.get(UserModel, user_id)
         if row is None:
-            self._session.add(UserModel(id=user_id, email=None))
+            self._session.add(
+                UserModel(
+                    id=user_id,
+                    email=f"auto_{user_id.hex}@sigis.internal",
+                )
+            )

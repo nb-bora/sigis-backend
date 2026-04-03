@@ -16,6 +16,7 @@ def test_full_flow_mode_a() -> None:
 def _run_flow(client: TestClient) -> None:
     insp = uuid4()
     host = uuid4()
+    admin = uuid4()
 
     r0 = client.post(
         "/v1/establishments",
@@ -26,6 +27,7 @@ def _run_flow(client: TestClient) -> None:
             "radius_strict_m": 500.0,
             "radius_relaxed_m": 800.0,
         },
+        headers={"X-User-Id": str(admin)},
     )
     assert r0.status_code == 200, r0.text
     eid = r0.json()["establishment_id"]
