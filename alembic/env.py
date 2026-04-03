@@ -2,13 +2,13 @@
 
 import asyncio
 
-from alembic import context
 from sqlalchemy.ext.asyncio import create_async_engine
 
 # Importe la Base (et tous les modèles via main.py qui les importe)
 import infrastructure.persistence.sqlalchemy.models  # noqa: F401
-from infrastructure.persistence.sqlalchemy.base import Base
+from alembic import context
 from infrastructure.config.settings import get_settings
+from infrastructure.persistence.sqlalchemy.base import Base
 
 # ---------------------------------------------------------------------------
 # Configuration Alembic
