@@ -1,4 +1,7 @@
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_INSECURE_DEFAULT_KEY = "CHANGE_ME_IN_PRODUCTION_USE_LONG_RANDOM_STRING"
 
 
 class Settings(BaseSettings):
@@ -13,7 +16,7 @@ class Settings(BaseSettings):
     auto_create_tables: bool = True
 
     # ── JWT ─────────────────────────────────────────────────────────────────
-    secret_key: str = "CHANGE_ME_IN_PRODUCTION_USE_LONG_RANDOM_STRING"
+    secret_key: str = _INSECURE_DEFAULT_KEY
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
     reset_token_expire_minutes: int = 30
@@ -31,6 +34,19 @@ class Settings(BaseSettings):
 
     # URL du frontend pour les liens dans les e-mails
     frontend_url: str = "http://localhost:3000"
+
+    @property
+    def is_dev(self) -> bool:
+        return self.env == "development"
+
+    @model_validator(mode="after")
+    def _validate_production_secrets(self) -> "Settings":
+        if self.env == "production":
+            if self.secret_key == _INSECURE_DEFAULT_KEY:
+                raise ValueError(
+                    "SIGIS_SECRET_KEY doit être défini avec une valeur sécurisée en production."
+                )
+        return self
 
 
 def get_settings() -> Settings:
