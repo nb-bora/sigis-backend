@@ -194,12 +194,37 @@ class RequireRolesDep:
             )
 
 
+# ── CurrentUserRolesDep ───────────────────────────────────────────────────
+
+
+class CurrentUserRolesDep:
+    """Retourne l'ensemble des rôles de l'utilisateur courant depuis le JWT."""
+
+    async def __call__(
+        self,
+        settings: Annotated[Settings, Depends(get_settings_dep)],
+        credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)] = None,
+        x_user_id: Annotated[str | None, Header(alias="X-User-Id")] = None,
+    ) -> set[Role]:
+        if credentials is not None:
+            payload = _decode_token(credentials.credentials, settings)
+            return set(_extract_roles(payload))
+        if x_user_id and settings.is_dev:
+            return set()  # bypass dev : pas de rôles → accès de base uniquement
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentification requise.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+
 # ── Aliases ────────────────────────────────────────────────────────────────
 
 SettingsDep = Annotated[Settings, Depends(get_settings_dep)]
 UoW = Annotated[SqlAlchemyUnitOfWork, Depends(get_uow)]
 EmailDep = Annotated[EmailService, Depends(get_email_service)]
 UserId = Annotated[UUID, Depends(CurrentUserDep())]
+UserRoles = Annotated[set[Role], Depends(CurrentUserRolesDep())]
 
 
 def parse_user_id(

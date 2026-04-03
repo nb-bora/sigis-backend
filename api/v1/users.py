@@ -14,12 +14,15 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from api.deps import RequirePermissionDep, UoW, UserId
+from api.deps import RequirePermissionDep, UoW, UserId, UserRoles
 from api.v1.schemas import UpdateUserBody, UserResponse
 from domain.errors import NotFound
 from domain.identity.permission import Permission as Perm
+from domain.identity.role import Role
 from domain.identity.user import User
 from domain.identity.value_objects.phone_number import CameroonPhoneNumber, InvalidPhoneNumber
+
+_ADMIN_ROLES: frozenset[Role] = frozenset({Role.SUPER_ADMIN, Role.NATIONAL_ADMIN})
 
 router = APIRouter(prefix="/users", tags=["Utilisateurs"])
 
@@ -69,7 +72,6 @@ async def list_users(uow: UoW) -> list[UserResponse]:
 @router.get(
     "/{user_id}",
     response_model=UserResponse,
-    dependencies=[Depends(RequirePermissionDep(Perm.USER_READ))],
     summary="Détail d'un utilisateur",
     description="""
 **Rôle** : Retourne le profil complet d'un utilisateur.
@@ -77,16 +79,25 @@ async def list_users(uow: UoW) -> list[UserResponse]:
 **Paramètres** :
 - `user_id` — identifiant UUID de l'utilisateur
 
-**Accès** : Un utilisateur peut consulter son propre profil.
-Les `SUPER_ADMIN` et `NATIONAL_ADMIN` peuvent consulter n'importe quel profil.
+**Accès** :
+- Tout utilisateur authentifié peut consulter **son propre** profil.
+- `SUPER_ADMIN` et `NATIONAL_ADMIN` peuvent consulter n'importe quel profil.
 
 **Exceptions** :
 - `401` — non authentifié
-- `403` — permission `USER_READ` requise
+- `403` — accès refusé (profil d'un autre utilisateur sans droits admin)
 - `404` — utilisateur introuvable
 """,
 )
-async def get_user(user_id: UUID, uow: UoW, current_user: UserId) -> UserResponse:
+async def get_user(
+    user_id: UUID, uow: UoW, current_user: UserId, user_roles: UserRoles
+) -> UserResponse:
+    is_admin = bool(_ADMIN_ROLES & user_roles)
+    if current_user != user_id and not is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Accès réservé à votre propre profil ou aux administrateurs.",
+        )
     try:
         user = await uow.users.get_by_id(user_id)
     except NotFound as exc:
@@ -100,7 +111,6 @@ async def get_user(user_id: UUID, uow: UoW, current_user: UserId) -> UserRespons
 @router.patch(
     "/{user_id}",
     response_model=UserResponse,
-    dependencies=[Depends(RequirePermissionDep(Perm.USER_UPDATE))],
     summary="Modifier un utilisateur",
     description="""
 **Rôle** : Met à jour le profil d'un utilisateur (champs optionnels).
@@ -109,22 +119,16 @@ async def get_user(user_id: UUID, uow: UoW, current_user: UserId) -> UserRespons
 - `user_id` — identifiant UUID de l'utilisateur à modifier
 - `full_name` _(optionnel)_ — nouveau nom complet
 - `phone_number` _(optionnel)_ — nouveau numéro de téléphone camerounais
-- `is_active` _(optionnel)_ — activer / désactiver le compte
-- `roles` _(optionnel)_ — remplace entièrement la liste des rôles
+- `is_active` _(optionnel)_ — activer / désactiver le compte (**admin seulement**)
+- `roles` _(optionnel)_ — remplace entièrement la liste des rôles (**admin seulement**)
 
 **Accès** :
-- Un utilisateur peut modifier `full_name` et `phone_number` de son propre compte.
-- Seuls `SUPER_ADMIN` / `NATIONAL_ADMIN` peuvent modifier `is_active` et `roles`.
-
-**Workflow** :
-1. Récupération de l'utilisateur
-2. Validation du nouveau numéro si fourni
-3. Vérification de l'unicité du numéro si changé
-4. Mise à jour en base
+- Tout utilisateur authentifié peut modifier `full_name` et `phone_number` de **son propre** compte.
+- `is_active` et `roles` sont réservés aux `SUPER_ADMIN` / `NATIONAL_ADMIN`.
 
 **Exceptions** :
 - `401` — non authentifié
-- `403` — permission `USER_UPDATE` requise
+- `403` — modification d'un autre profil ou champ admin sans droits
 - `404` — utilisateur introuvable
 - `409` — numéro déjà utilisé par un autre compte
 - `422` — numéro de téléphone invalide
@@ -135,7 +139,21 @@ async def update_user(
     body: UpdateUserBody,
     uow: UoW,
     current_user: UserId,
+    user_roles: UserRoles,
 ) -> UserResponse:
+    is_admin = bool(_ADMIN_ROLES & user_roles)
+
+    if current_user != user_id and not is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Modification réservée à votre propre profil ou aux administrateurs.",
+        )
+    if (body.is_active is not None or body.roles is not None) and not is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Les champs 'is_active' et 'roles' sont réservés aux administrateurs.",
+        )
+
     try:
         user = await uow.users.get_by_id(user_id)
     except NotFound as exc:
