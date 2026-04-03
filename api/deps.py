@@ -88,8 +88,9 @@ class CurrentUserDep:
     """
     Injecte l'identifiant de l'utilisateur courant depuis le JWT Bearer.
 
-    Mode dégradé (dev/tests) : accepte l'en-tête ``X-User-Id`` si aucun
-    JWT n'est fourni, pour rester compatible avec les tests existants.
+    Mode dégradé (dev uniquement) : accepte l'en-tête ``X-User-Id`` si
+    aucun JWT n'est fourni, pour rester compatible avec les tests
+    d'intégration. En production, toute requête sans JWT reçoit 401.
     """
 
     async def __call__(
@@ -101,9 +102,13 @@ class CurrentUserDep:
         if credentials is not None:
             payload = _decode_token(credentials.credentials, settings)
             return _extract_user_id(payload)
-        if x_user_id:
+        if x_user_id and settings.is_dev:
             return UUID(x_user_id)
-        return UUID("00000000-0000-0000-0000-000000000001")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentification requise.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
 
 # ── RequirePermissionDep ──────────────────────────────────────────────────
@@ -135,11 +140,10 @@ class RequirePermissionDep:
         credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)] = None,
         x_user_id: Annotated[str | None, Header(alias="X-User-Id")] = None,
     ) -> None:
-        # Dev : si X-User-Id sans JWT → on bypass la vérification des permissions
-        # (pour rester compatible avec les anciens tests)
         if credentials is None:
-            if x_user_id:
-                return  # mode dev/test : accès autorisé
+            # Bypass autorisé uniquement en développement avec X-User-Id
+            if x_user_id and settings.is_dev:
+                return
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Authentification requise.",
