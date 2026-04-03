@@ -176,13 +176,31 @@ def test_list_exception_requests_with_x_user_id(client: TestClient, uid: str) ->
     assert r.status_code == 200, r.text
 
 
-def test_get_user_with_x_user_id(client: TestClient, uid: str) -> None:
-    """GET /users/{id} retourne 404 (non 401/403) en mode dev — permission bypassée."""
+def test_get_own_profile_with_x_user_id(client: TestClient, uid: str) -> None:
+    """GET /users/{id} sur son propre profil retourne 404 (inexistant) non 401/403."""
+    r = client.get(f"/v1/users/{uid}", headers={"X-User-Id": uid})
+    assert r.status_code == 404, r.text
+
+
+def test_get_other_profile_forbidden_without_admin(client: TestClient, uid: str) -> None:
+    """GET /users/{id} sur le profil d'un autre utilisateur sans rôle admin → 403."""
     r = client.get(f"/v1/users/{uuid4()}", headers={"X-User-Id": uid})
+    assert r.status_code == 403, r.text
+
+
+def test_patch_own_profile_with_x_user_id(client: TestClient, uid: str) -> None:
+    """PATCH /users/{id} sur son propre profil retourne 404 (inexistant) non 401/403."""
+    r = client.patch(f"/v1/users/{uid}", json={"full_name": "Test"}, headers={"X-User-Id": uid})
     assert r.status_code == 404, r.text
 
 
-def test_patch_user_with_x_user_id(client: TestClient, uid: str) -> None:
-    """PATCH /users/{id} retourne 404 (non 401/403) en mode dev — permission bypassée."""
+def test_patch_other_profile_forbidden_without_admin(client: TestClient, uid: str) -> None:
+    """PATCH /users/{id} sur le profil d'un autre utilisateur sans rôle admin → 403."""
     r = client.patch(f"/v1/users/{uuid4()}", json={"full_name": "Test"}, headers={"X-User-Id": uid})
-    assert r.status_code == 404, r.text
+    assert r.status_code == 403, r.text
+
+
+def test_patch_admin_fields_forbidden_without_admin(client: TestClient, uid: str) -> None:
+    """is_active et roles sont réservés aux admins — l'absence de rôle admin retourne 403."""
+    r = client.patch(f"/v1/users/{uid}", json={"is_active": False}, headers={"X-User-Id": uid})
+    assert r.status_code == 403, r.text
