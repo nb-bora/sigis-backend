@@ -2,100 +2,238 @@
 
 [![CI](https://github.com/nb-bora/sigis-backend/actions/workflows/ci.yml/badge.svg)](https://github.com/nb-bora/sigis-backend/actions/workflows/ci.yml)
 
-Backend **FastAPI** pour **SIGIS** (traçabilité des missions d’inspection scolaire) — structure **DDD** + **Clean Architecture**, conforme au cahier de modélisation métier.
+**API HTTP** du **Système d’Information de traçabilité des missions d’inspection scolaire (SIGIS)** — contexte **Cameroun** (MINESEC / MINSUB et déconcentration). Ce dépôt expose le **backend** : **FastAPI**, persistance **SQLAlchemy async**, architecture **DDD** et **Clean Architecture**, aligné sur le cahier de modélisation métier du projet.
 
-## Intégration continue (CI/CD)
+---
 
-| Élément | Rôle |
-|--------|------|
-| [`.github/workflows/ci.yml`](.github/workflows/ci.yml) | **GitHub Actions** : Ruff (lint + format vérifié) puis **pytest** sur Python **3.11** et **3.12** à chaque push / PR vers `main` |
-| [`.github/dependabot.yml`](.github/dependabot.yml) | **Dependabot** : mises à jour hebdomadaires (pip) et mensuelles (actions) |
-| [`.pre-commit-config.yaml`](.pre-commit-config.yaml) | Hooks **Ruff** optionnels en local (`pip install pre-commit && pre-commit install`) |
+## Table des matières
 
-Exécution manuelle possible dans l’onglet **Actions** → workflow **CI** → **Run workflow**.
+1. [Contexte et objectifs](#contexte-et-objectifs)
+2. [Ce que fait ce backend (périmètre V1)](#ce-que-fait-ce-backend-périmètre-v1)
+3. [Stack technique](#stack-technique)
+4. [Architecture logicielle](#architecture-logicielle)
+5. [Structure du dépôt](#structure-du-dépôt)
+6. [Installation](#installation)
+7. [Exécution locale](#exécution-locale)
+8. [Configuration](#configuration)
+9. [API REST (`/v1`)](#api-rest-v1)
+10. [Modes de validation hôte](#modes-de-validation-hôte)
+11. [Idempotence et robustesse](#idempotence-et-robustesse)
+12. [Qualité : tests, lint, CI](#qualité--tests-lint-ci)
+13. [Documentation complémentaire](#documentation-complémentaire)
+14. [Limites et suite (V2+)](#limites-et-suite-v2)
 
-## Arborescence
+---
+
+## Contexte et objectifs
+
+Les inspections scolaires doivent pouvoir s’appuyer sur une **preuve structurée** : **qui** est sur le terrain, **où**, **quand**, et pendant **combien de temps**, avec une **double validation** (inspecteur et responsable d’accueil) lorsque le mode le permet, sans réduire le dispositif à un simple « pointage » opposable.
+
+**SIGIS** vise à :
+
+- centraliser des **événements de présence** vérifiables (géofence, co-présence, durée) ;
+- respecter le **réalisme terrain** (réseaux faibles, téléphones hétérogènes, **fallbacks** QR / SMS pour le responsable) ;
+- préparer une **gouvernance des données** (charte, visibilité, pas de sanction automatique par l’outil seul) — aspects surtout **hors code**, documentés dans le cahier projet.
+
+Ce backend matérialise la **couche V1 pilote** : **présence vérifiable** et **mini-workflow de signalement** ; la **richesse métier** type rapport de visite structuré (`MissionOutcome`) est **hors périmètre V1** (prévue en V2).
+
+---
+
+## Ce que fait ce backend (périmètre V1)
+
+| Domaine | Fonctionnalité |
+|--------|----------------|
+| **Référentiel** | Création d’**établissements** avec centre géographique et **deux rayons** (strict / élargi) pour les statuts OK / probable / hors zone. |
+| **Planification** | Création de **missions** (fenêtre horaire, inspecteur, lien établissement), génération d’un **`host_token`** pour les parcours QR. |
+| **Exécution terrain** | **Check-in** inspecteur, **confirmation hôte** selon le mode (GPS, QR, SMS), **check-out**, calcul d’une **durée de présence** (check-in → check-out). |
+| **Preuves** | Enregistrement de **preuves de présence** et d’**événements de co-présence** lorsque les règles sont satisfaites. |
+| **Supervision légère** | **Signalements** liés à une mission (périmètre faux, incident, etc.). |
+| **Technique** | **Idempotence** sur les actions sensibles via `client_request_id`, erreurs métier **typées** (`DomainError` → HTTP). |
+
+La géolocalisation est calculée **côté application** (haversine + seuils). **PostGIS** en base est une **évolution** prévue (voir [Limites et suite](#limites-et-suite-v2)).
+
+---
+
+## Stack technique
+
+| Composant | Choix |
+|-----------|--------|
+| Langage | **Python ≥ 3.11** |
+| Framework HTTP | **FastAPI** |
+| Validation / schémas | **Pydantic v2** |
+| Persistance | **SQLAlchemy 2** (async), **SQLite** + `aiosqlite` par défaut |
+| Tests | **pytest**, **httpx** (TestClient) |
+| Lint / format | **Ruff** |
+| CI | **GitHub Actions** (voir [Qualité](#qualité--tests-lint-ci)) |
+
+---
+
+## Architecture logicielle
+
+Les règles métier vivent dans **`domain/`** (invariants, agrégats, value objects). Les **cas d’usage** orchestrent dans **`application/`**. Les adaptateurs (ORM, configuration) sont dans **`infrastructure/`**. Les routes HTTP et DTO sont dans **`api/`**.
+
+```
+api  →  application  →  domain
+ ↑           ↑
+ └───────────┴── infrastructure (repositories, UoW, session)
+```
+
+Détail des **bounded contexts**, ports et conventions : **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
+
+---
+
+## Structure du dépôt
 
 ```
 sigis-backend/
-├── domain/                    # Règles métier pures (invariants, agrégats, VOs)
-│   ├── shared/                # Géofence, co-présence mode A, enums communs
-│   ├── establishment/         # Bounded context : Référentiel
-│   ├── mission/               # Planification
-│   ├── site_visit/            # Exécution terrain
-│   ├── presence/              # PresenceProof, CoPresenceEvent
-│   └── exception_request/     # Signalements V1 (supervision légère)
-├── application/               # Cas d'usage + ports (interfaces)
-│   ├── ports/                 # Repositories, Unit of Work
-│   └── use_cases/             # Un fichier par flux métier
-├── infrastructure/            # Config, persistance PostGIS (à brancher)
-│   ├── config/
-│   └── persistence/
-├── api/                       # FastAPI — routes minces
-│   ├── main.py                # create_app(), CORS, prefix /v1
-│   └── v1/
-├── common/                    # Mapping erreurs HTTP, transversal
-├── docs/                      # ADR, glossaire importé, architecture
-└── tests/
+├── domain/                 # Règles pures (géofence, co-présence, transitions SiteVisit, modes hôte)
+├── application/            # Cas d’usage (check-in, confirmation hôte, check-out, missions, signalements)
+├── infrastructure/       # Settings, SQLAlchemy, Unit of Work, repositories
+├── api/                    # FastAPI — `main.py`, `v1/` (routes, schémas)
+├── common/                 # Utilitaires transverses (ex. mapping erreurs HTTP)
+├── docs/                   # Architecture, écarts vs cahier complet
+├── tests/                  # Tests unitaires et flux E2E
+├── .github/workflows/      # CI
+└── pyproject.toml
 ```
+
+---
 
 ## Installation
 
+**Prérequis** : Python **3.11** ou **3.12**, `git`.
+
 ```bash
+git clone <url-du-depot>
 cd sigis-backend
 python -m venv .venv
-.venv\Scripts\activate          # Windows
+```
+
+**Windows (PowerShell)** :
+
+```powershell
+.\.venv\Scripts\Activate.ps1
 pip install -e ".[dev]"
 ```
 
-## Lancer l’API
+**Linux / macOS** :
+
+```bash
+source .venv/bin/activate
+pip install -e ".[dev]"
+```
+
+Dépendances optionnelles :
+
+- **`[postgres]`** : `asyncpg`, `geoalchemy2` pour un déploiement PostgreSQL / PostGIS.
+
+---
+
+## Exécution locale
 
 ```bash
 uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-- Santé : `GET http://localhost:8000/v1/health`
-- OpenAPI : `http://localhost:8000/docs`
+| Ressource | URL |
+|-----------|-----|
+| Santé | `GET http://localhost:8000/v1/health` |
+| OpenAPI (Swagger) | `http://localhost:8000/docs` |
+| Schéma OpenAPI JSON | `http://localhost:8000/openapi.json` |
 
-### Variables d’environnement
+Au premier démarrage, les **tables** sont créées automatiquement (`create_all`) — adapté au **développement**. En production, prévoir des **migrations** (ex. Alembic).
 
-| Variable | Défaut | Rôle |
-|----------|--------|------|
-| `SIGIS_DATABASE_URL` | `sqlite+aiosqlite:///./sigis.db` | SQLite async (dev) ; production : `postgresql+asyncpg://...` |
-| `SIGIS_API_PREFIX` | `/v1` | Préfixe API |
-| `SIGIS_CORS_ORIGINS` | `http://localhost:3000` | CORS |
+---
 
-### Auth développement
+## Configuration
 
-En-tête **`X-User-Id`** : UUID de l’utilisateur (inspecteur / hôte). Sans en-tête, un UUID par défaut est utilisé (tests uniquement).
+Variables d’environnement (préfixe **`SIGIS_`**, voir `.env.example`) :
 
-### Endpoints V1 (principaux)
+| Variable | Défaut | Description |
+|----------|--------|-------------|
+| `SIGIS_DATABASE_URL` | `sqlite+aiosqlite:///./sigis.db` | SQLite async en dev ; en prod : `postgresql+asyncpg://user:pass@hôte:5432/base` |
+| `SIGIS_API_PREFIX` | `/v1` | Préfixe des routes API |
+| `SIGIS_CORS_ORIGINS` | `http://localhost:3000` | Origines CORS autorisées (liste séparée par des virgules) |
+| `SIGIS_DATABASE_ECHO` | `false` | Journaliser les requêtes SQL (debug) |
 
-- `POST /v1/establishments` — créer un établissement (point + deux rayons)
-- `POST /v1/missions` — créer une mission (retourne `host_token` pour QR / SMS)
-- `POST /v1/missions/{id}/check-in` — check-in inspecteur (`host_validation_mode`: `app_gps` \| `qr_static` \| `sms_shortcode`)
-- `POST /v1/site-visits/{id}/host-confirmation` — validation hôte (GPS + QR ou SMS selon mode)
-- `POST /v1/site-visits/{id}/check-out` — clôture (durée check-in → check-out)
-- `POST /v1/missions/{id}/exception-requests` — signalement terrain
+---
 
-Idempotence : champ `client_request_id` (≥ 8 caractères) sur check-in / confirmation / check-out.
+## API REST (`/v1`)
 
-## Tests
+Toutes les routes ci-dessous sont préfixées par `SIGIS_API_PREFIX` (par défaut **`/v1`**).
+
+| Méthode | Chemin | Description |
+|---------|--------|-------------|
+| `GET` | `/health` | Indicateur de disponibilité |
+| `POST` | `/establishments` | Créer un établissement (nom, centre lat/lon, deux rayons en mètres) |
+| `POST` | `/missions` | Créer une mission ; réponse inclut `mission_id` et `host_token` |
+| `POST` | `/missions/{mission_id}/check-in` | Check-in inspecteur (position, mode de validation hôte) |
+| `POST` | `/missions/{mission_id}/exception-requests` | Créer un signalement terrain |
+| `POST` | `/site-visits/{site_visit_id}/host-confirmation` | Valider la présence côté hôte (selon le mode choisi au check-in) |
+| `POST` | `/site-visits/{site_visit_id}/check-out` | Clôturer la visite (durée dérivée du check-in / check-out) |
+
+**Authentification (développement)** : en-tête **`X-User-Id`** avec un UUID (inspecteur ou hôte). Sans en-tête, un UUID par défaut est utilisé (pratique limitée aux tests).
+
+---
+
+## Modes de validation hôte
+
+Le champ `host_validation_mode` au **check-in** fixe le scénario pour la **confirmation hôte** :
+
+| Mode | Valeur API | Idée métier |
+|------|------------|-------------|
+| **A** | `app_gps` | Deux positions GPS : co-présence (délai + distance) entre inspecteur et hôte. |
+| **B** | `qr_static` | Jeton **`host_token`** (mission) présenté via QR / saisie ; cohérence avec la fenêtre de mission. |
+| **C** | `sms_shortcode` | Code SMS **configuré sur la mission** (`sms_code` à la création) ; même logique de fenêtre. |
+
+Les invariants détaillés et les limites produit sont dans le **cahier SIGIS** et dans le code (`domain.shared`, `domain.site_visit`).
+
+---
+
+## Idempotence et robustesse
+
+Les actions **check-in**, **host-confirmation** et **check-out** acceptent un champ **`client_request_id`** (min. 8 caractères). Une même clé pour un même **scope** métier renvoie la **réponse** déjà enregistrée — utile pour les **retries** et une future **sync offline** côté client (le détail UX offline n’est pas dans ce dépôt).
+
+---
+
+## Qualité : tests, lint, CI
+
+| Outil | Rôle |
+|-------|------|
+| `pytest` | Tests dans `tests/` (dont flux E2E minimal en mode `app_gps`) |
+| `ruff check` / `ruff format` | Lint et formatage |
+| [`.pre-commit-config.yaml`](.pre-commit-config.yaml) | Hooks Ruff optionnels en local (`pre-commit install`) |
+| [`.github/workflows/ci.yml`](.github/workflows/ci.yml) | CI : Ruff puis pytest sur Python **3.11** et **3.12** |
+| [`.github/dependabot.yml`](.github/dependabot.yml) | Mises à jour dépendances pip et GitHub Actions |
 
 ```bash
 pytest
+ruff check .
+ruff format --check .
 ```
 
-(`tests/conftest.py` force `SIGIS_DATABASE_URL` vers `sigis_test.db`.)
+Les tests fixent `SIGIS_DATABASE_URL` vers une base fichier dédiée (`tests/conftest.py`).
 
-## Écarts vs cahier complet
+---
 
-Voir [docs/GAP_IMPLEMENTATION.md](docs/GAP_IMPLEMENTATION.md).
+## Documentation complémentaire
 
-## Option PostgreSQL + PostGIS
+| Document | Contenu |
+|----------|---------|
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Couches, bounded contexts, dépendances |
+| [docs/GAP_IMPLEMENTATION.md](docs/GAP_IMPLEMENTATION.md) | Ce qui est **volontairement** hors périmètre ou à renforcer (PostGIS, auth prod, RBAC, V2, etc.) |
 
-```bash
-pip install -e ".[postgres]"
-```
+Le **cahier de cadrage métier** (roadmap V1/V2/V3, gouvernance, charte) est tenu **en dehors** de ce dépôt (Cursor plan / document projet).
 
-Configurer `SIGIS_DATABASE_URL` et remplacer progressivement le calcul haversine par des requêtes `ST_DWithin` (migrations Alembic recommandées).
+---
+
+## Limites et suite (V2+)
+
+- **Pas** de `MissionOutcome` / rapport de visite riche en V1 (prévu V2).
+- **Pas** d’authentification OAuth/JWT ni de **RBAC** complet en production dans la version actuelle.
+- **PostGIS** (`ST_DWithin`, géométrie versionnée en SQL) **non** requis pour faire tourner le projet ; **Alembic** recommandé pour les migrations une fois le schéma stabilisé.
+- Liste exhaustive des écarts par rapport au cahier : **[docs/GAP_IMPLEMENTATION.md](docs/GAP_IMPLEMENTATION.md)**.
+
+---
+
+*SIGIS — preuve structurée de présence et de cohérence terrain ; pilotage institutionnel et acceptabilité sociale documentés dans le cahier projet.*
