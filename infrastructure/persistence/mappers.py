@@ -1,8 +1,10 @@
 from domain.establishment.establishment import Establishment
+from domain.exception_request.exception_request import ExceptionRequest, ExceptionRequestStatus
 from domain.mission.mission import Mission, MissionStatus
 from domain.site_visit.site_visit import SiteVisit, SiteVisitStatus
 from infrastructure.persistence.sqlalchemy.models import (
     EstablishmentModel,
+    ExceptionRequestModel,
     MissionModel,
     SiteVisitModel,
 )
@@ -48,6 +50,17 @@ def site_visit_to_domain(row: SiteVisitModel) -> SiteVisit:
         inspector_lon=row.inspector_lon,
         host_lat=row.host_lat,
         host_lon=row.host_lon,
+    )
+
+
+def exception_request_to_domain(row: ExceptionRequestModel) -> ExceptionRequest:
+    return ExceptionRequest(
+        id=row.id,
+        mission_id=row.mission_id,
+        author_user_id=row.author_user_id,
+        created_at=row.created_at,
+        status=ExceptionRequestStatus(row.status),
+        message=row.message,
     )
 
 

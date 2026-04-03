@@ -1,11 +1,12 @@
 from datetime import UTC, datetime
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from domain.exception_request.exception_request import ExceptionRequest
+from domain.exception_request.exception_request import ExceptionRequest, ExceptionRequestStatus
 from domain.presence.models import CoPresenceEvent, PresenceProof
+from infrastructure.persistence.mappers import exception_request_to_domain
 from infrastructure.persistence.sqlalchemy.models import (
     CoPresenceEventModel,
     ExceptionRequestModel,
@@ -62,6 +63,28 @@ class ExceptionRequestRepositoryImpl:
                 message=req.message,
             )
         )
+
+    async def get_by_id(self, exception_id: UUID) -> ExceptionRequest | None:
+        row = await self._session.get(ExceptionRequestModel, exception_id)
+        return exception_request_to_domain(row) if row else None
+
+    async def list_by_mission_id(self, mission_id: UUID) -> list[ExceptionRequest]:
+        result = await self._session.execute(
+            select(ExceptionRequestModel).where(ExceptionRequestModel.mission_id == mission_id)
+        )
+        return [exception_request_to_domain(r) for r in result.scalars().all()]
+
+    async def list_all(self, status: str | None = None) -> list[ExceptionRequest]:
+        q = select(ExceptionRequestModel)
+        if status is not None:
+            q = q.where(ExceptionRequestModel.status == status)
+        result = await self._session.execute(q)
+        return [exception_request_to_domain(r) for r in result.scalars().all()]
+
+    async def update_status(self, exception_id: UUID, new_status: ExceptionRequestStatus) -> None:
+        row = await self._session.get(ExceptionRequestModel, exception_id)
+        if row is not None:
+            row.status = new_status.value
 
 
 class IdempotencyRepositoryImpl:

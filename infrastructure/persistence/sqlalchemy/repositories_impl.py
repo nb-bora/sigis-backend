@@ -27,6 +27,10 @@ class EstablishmentRepositoryImpl:
         row = await self._session.get(EstablishmentModel, establishment_id)
         return establishment_to_domain(row) if row else None
 
+    async def list_all(self) -> list[Establishment]:
+        result = await self._session.execute(select(EstablishmentModel))
+        return [establishment_to_domain(r) for r in result.scalars().all()]
+
     async def add(self, est: Establishment) -> None:
         self._session.add(
             EstablishmentModel(
@@ -48,6 +52,22 @@ class MissionRepositoryImpl:
     async def get_by_id(self, mission_id: UUID) -> Mission | None:
         row = await self._session.get(MissionModel, mission_id)
         return mission_to_domain(row) if row else None
+
+    async def list_all(
+        self,
+        inspector_id: UUID | None = None,
+        establishment_id: UUID | None = None,
+        status: str | None = None,
+    ) -> list[Mission]:
+        q = select(MissionModel)
+        if inspector_id is not None:
+            q = q.where(MissionModel.inspector_id == inspector_id)
+        if establishment_id is not None:
+            q = q.where(MissionModel.establishment_id == establishment_id)
+        if status is not None:
+            q = q.where(MissionModel.status == status)
+        result = await self._session.execute(q)
+        return [mission_to_domain(r) for r in result.scalars().all()]
 
     async def save(self, mission: Mission) -> None:
         row = await self._session.get(MissionModel, mission.id)

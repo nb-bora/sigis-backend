@@ -7,8 +7,31 @@ from api.v1.schemas import CheckInBody, CheckOutBody, ConfirmHostBody
 from application.use_cases.check_in_inspector import CheckInInspector, CheckInInspectorCommand
 from application.use_cases.check_out_visit import CheckOutCommand, CheckOutVisit
 from application.use_cases.confirm_host_presence import ConfirmHostCommand, ConfirmHostPresence
+from domain.errors import NotFound
 
 router = APIRouter(tags=["site-visits"])
+
+
+@router.get("/site-visits/{site_visit_id}")
+async def get_site_visit(site_visit_id: UUID, uow: UoW, _user: UserId) -> dict[str, object]:
+    assert uow.site_visits is not None
+    visit = await uow.site_visits.get_by_id(site_visit_id)
+    if visit is None:
+        raise NotFound("Visite introuvable.")
+    return {
+        "id": str(visit.id),
+        "mission_id": str(visit.mission_id),
+        "status": visit.status.value,
+        "host_validation_mode": (
+            visit.host_validation_mode.value if visit.host_validation_mode else None
+        ),
+        "checked_in_at": visit.checked_in_at.isoformat() if visit.checked_in_at else None,
+        "checked_out_at": visit.checked_out_at.isoformat() if visit.checked_out_at else None,
+        "inspector_lat": visit.inspector_lat,
+        "inspector_lon": visit.inspector_lon,
+        "host_lat": visit.host_lat,
+        "host_lon": visit.host_lon,
+    }
 
 
 @router.post("/missions/{mission_id}/check-in")
