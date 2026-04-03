@@ -27,8 +27,16 @@ api  →  application  →  domain
 
 Règles transverses : `domain.shared` (géofence, co-présence mode A, `HostValidationMode`).
 
+## Implémentation actuelle (V1)
+
+- **SQLAlchemy 2 async** + **SQLite** (`aiosqlite`) par défaut ; `SIGIS_DATABASE_URL` pour PostgreSQL.
+- **`SqlAlchemyUnitOfWork`** + repositories sous `infrastructure/persistence/`.
+- **Cas d’usage** : check-in, confirmation hôte (modes A/B/C), check-out, signalement, création établissement/mission.
+- **API** : `/v1` — voir `README.md` ; auth dev via `X-User-Id`.
+- **Géo** : haversine + deux rayons (pas encore PostGIS SQL).
+
 ## Prochaines étapes techniques
 
-1. Brancher SQLAlchemy + PostGIS sous `infrastructure/persistence/`.
-2. Implémenter `UnitOfWork` + repositories.
-3. Endpoints check-in / validation hôte / check-out en s’appuyant sur les cas d’usage.
+1. **Alembic** + migrations ; option **PostGIS** (`ST_DWithin`).
+2. **Auth** réelle (JWT) et **RBAC** / visibilité.
+3. **Observabilité** : corrélation requêtes, logs d’accès sensibles.

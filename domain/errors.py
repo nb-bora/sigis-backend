@@ -30,3 +30,19 @@ class MissionExpired(DomainError):
 
 class AlreadyCheckedOut(DomainError):
     code = "ALREADY_CHECKED_OUT"
+
+
+class NotFound(DomainError):
+    code = "NOT_FOUND"
+
+
+class Conflict(DomainError):
+    code = "CONFLICT"
+
+
+class IdempotencyReplay(DomainError):
+    code = "IDEMPOTENCY_REPLAY"
+
+
+class Forbidden(DomainError):
+    code = "FORBIDDEN"

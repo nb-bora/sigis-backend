@@ -7,7 +7,8 @@ class Settings(BaseSettings):
     env: str = "development"
     api_prefix: str = "/v1"
     cors_origins: str = "http://localhost:3000"
-    # database_url: str | None = None  # décommenter avec extra db
+    database_url: str = "sqlite+aiosqlite:///./sigis.db"
+    database_echo: bool = False
 
 
 def get_settings() -> Settings:

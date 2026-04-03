@@ -1,5 +1,3 @@
-"""Racine d'agrégat Establishment (squelette — IDs et champs à figer avec le glossaire)."""
-
 from dataclasses import dataclass
 from uuid import UUID
 
@@ -8,4 +6,8 @@ from uuid import UUID
 class Establishment:
     id: UUID
     name: str
-    # geometry_version_id: lié à EstablishmentGeometryVersion (PostGIS côté infra)
+    center_lat: float
+    center_lon: float
+    radius_strict_m: float
+    radius_relaxed_m: float
+    geometry_version: int

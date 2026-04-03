@@ -1,6 +1,6 @@
 """Cycle de vie SiteVisit — états à formaliser (machine à états V1)."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 from uuid import UUID
@@ -26,4 +26,7 @@ class SiteVisit:
     host_validation_mode: HostValidationMode | None = None
     checked_in_at: datetime | None = None
     checked_out_at: datetime | None = None
-    # transitions métier : méthodes dédiées une fois les invariants figés
+    inspector_lat: float | None = None
+    inspector_lon: float | None = None
+    host_lat: float | None = None
+    host_lon: float | None = None

@@ -1,10 +1,14 @@
 """Règles de co-présence — mode A (deux GPS) ; B/C : autres invariants (jetons) hors de ce module."""
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from domain.errors import CoPresenceRejected
 from domain.shared.value_objects.host_validation_mode import HostValidationMode
+
+
+def _aware(dt: datetime) -> datetime:
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
 @dataclass(frozen=True, slots=True)
@@ -21,7 +25,9 @@ def assert_copresence_mode_a(
     params: CoPresenceParams,
 ) -> None:
     """Invariant mode APP_GPS : délai + distance mutuelle."""
-    if host_position_time - inspector_position_time > params.max_delay:
+    ins_t = _aware(inspector_position_time)
+    host_t = _aware(host_position_time)
+    if host_t - ins_t > params.max_delay:
         raise CoPresenceRejected("Délai inspecteur → validation hôte dépassé.", code="COPRESENCE_TIMEOUT")
     if distance_meters > params.max_distance_meters:
         raise CoPresenceRejected("Distance inspecteur–hôte trop grande.", code="COPRESENCE_DISTANCE")
