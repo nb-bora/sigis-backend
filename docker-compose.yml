@@ -1,0 +1,39 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sigis
+      POSTGRES_USER: sigis
+      POSTGRES_PASSWORD: ${SIGIS_DB_PASSWORD:-sigis_dev}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sigis"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SIGIS_ENV: production
+      SIGIS_DATABASE_URL: postgresql+asyncpg://sigis:${SIGIS_DB_PASSWORD:-sigis_dev}@db:5432/sigis
+      SIGIS_SECRET_KEY: ${SIGIS_SECRET_KEY}
+      SIGIS_CORS_ORIGINS: ${SIGIS_CORS_ORIGINS:-http://localhost:3000}
+      SIGIS_AUTO_CREATE_TABLES: "false"
+      SIGIS_MAIL_SERVER: ${SIGIS_MAIL_SERVER:-}
+      SIGIS_MAIL_PORT: ${SIGIS_MAIL_PORT:-587}
+      SIGIS_MAIL_USERNAME: ${SIGIS_MAIL_USERNAME:-}
+      SIGIS_MAIL_PASSWORD: ${SIGIS_MAIL_PASSWORD:-}
+      SIGIS_MAIL_FROM: ${SIGIS_MAIL_FROM:-noreply@sigis.cm}
+      SIGIS_FRONTEND_URL: ${SIGIS_FRONTEND_URL:-http://localhost:3000}
+    ports:
+      - "8000:8000"
+
+volumes:
+  pgdata:
