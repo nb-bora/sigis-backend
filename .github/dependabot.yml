@@ -1,0 +1,24 @@
+# Mises à jour de sécurité et maintenance — dépendances Python et actions GitHub.
+# Les PR Dependabot restent à valider manuellement (pas de merge auto).
+
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Africa/Douala
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - python
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    labels:
+      - dependencies
+      - github-actions

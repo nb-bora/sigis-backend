@@ -33,7 +33,9 @@ class MissionModel(Base):
     __tablename__ = "missions"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    establishment_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("establishments.id"))
+    establishment_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("establishments.id")
+    )
     inspector_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"))
     window_start: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     window_end: Mapped[datetime] = mapped_column(DateTime(timezone=True))
@@ -52,7 +54,9 @@ class SiteVisitModel(Base):
     __tablename__ = "site_visits"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    mission_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("missions.id"), unique=True)
+    mission_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("missions.id"), unique=True
+    )
     status: Mapped[str] = mapped_column(String(64))
     host_validation_mode: Mapped[str | None] = mapped_column(String(32), nullable=True)
     checked_in_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -69,7 +73,9 @@ class PresenceProofModel(Base):
     __tablename__ = "presence_proofs"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    site_visit_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("site_visits.id"))
+    site_visit_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("site_visits.id")
+    )
     actor_user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"))
     recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     latitude: Mapped[float] = mapped_column()
@@ -81,7 +87,9 @@ class CoPresenceEventModel(Base):
     __tablename__ = "copresence_events"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    site_visit_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("site_visits.id"))
+    site_visit_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("site_visits.id")
+    )
     validated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     host_validation_mode: Mapped[str] = mapped_column(String(32))
 

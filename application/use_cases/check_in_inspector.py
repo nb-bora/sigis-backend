@@ -2,7 +2,7 @@
 
 import json
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from domain.errors import Conflict, Forbidden, GeofenceRejected, NotFound
@@ -53,7 +53,7 @@ class CheckInInspector:
         if est is None:
             raise NotFound("Établissement introuvable.")
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         ensure_mission_window(now, mission.window_start, mission.window_end)
 
         dist = haversine_m(cmd.latitude, cmd.longitude, est.center_lat, est.center_lon)

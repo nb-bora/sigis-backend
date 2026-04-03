@@ -17,7 +17,7 @@ def geofence_status(
     distance_to_center_meters: float,
     params: GeofenceParams,
 ) -> GeofenceStatus:
-    """distance_to_center_meters : distance du point inspecteur au centre établissement (déjà calculée)."""
+    """Distance inspecteur–centre établissement (m), déjà calculée."""
     if distance_to_center_meters <= params.radius_meters_strict:
         return GeofenceStatus.OK
     if distance_to_center_meters <= params.radius_meters_relaxed:

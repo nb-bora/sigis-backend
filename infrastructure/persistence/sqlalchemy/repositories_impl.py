@@ -84,7 +84,9 @@ class SiteVisitRepositoryImpl:
         return site_visit_to_domain(row) if row else None
 
     async def get_by_mission_id(self, mission_id: UUID) -> SiteVisit | None:
-        q = await self._session.execute(select(SiteVisitModel).where(SiteVisitModel.mission_id == mission_id))
+        q = await self._session.execute(
+            select(SiteVisitModel).where(SiteVisitModel.mission_id == mission_id)
+        )
         row = q.scalar_one_or_none()
         return site_visit_to_domain(row) if row else None
 
@@ -95,7 +97,9 @@ class SiteVisitRepositoryImpl:
                 id=visit.id,
                 mission_id=visit.mission_id,
                 status=visit.status.value,
-                host_validation_mode=visit.host_validation_mode.value if visit.host_validation_mode else None,
+                host_validation_mode=visit.host_validation_mode.value
+                if visit.host_validation_mode
+                else None,
                 checked_in_at=visit.checked_in_at,
                 checked_out_at=visit.checked_out_at,
                 inspector_lat=visit.inspector_lat,

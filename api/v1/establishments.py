@@ -8,7 +8,9 @@ router = APIRouter(prefix="/establishments", tags=["establishments"])
 
 
 @router.post("")
-async def create_establishment(body: CreateEstablishmentBody, uow: UoW, _user: UserId) -> dict[str, object]:
+async def create_establishment(
+    body: CreateEstablishmentBody, uow: UoW, _user: UserId
+) -> dict[str, object]:
     uc = CreateEstablishment(uow)
     return await uc.execute(
         CreateEstablishmentCommand(

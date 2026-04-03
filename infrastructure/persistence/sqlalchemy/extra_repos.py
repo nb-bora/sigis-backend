@@ -1,4 +1,4 @@
-from datetime import datetime, timezone as tz
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from sqlalchemy import select
@@ -84,7 +84,7 @@ class IdempotencyRepositoryImpl:
                 id=uuid4(),
                 scope=scope,
                 client_key=client_key,
-                created_at=datetime.now(tz.utc),
+                created_at=datetime.now(UTC),
                 response_body=response_body,
             )
         )

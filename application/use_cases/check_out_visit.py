@@ -2,7 +2,7 @@
 
 import json
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from domain.errors import Conflict, Forbidden, NotFound
@@ -11,7 +11,7 @@ from infrastructure.persistence.sqlalchemy.uow import SqlAlchemyUnitOfWork
 
 
 def _aware(dt: datetime) -> datetime:
-    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
 
 
 @dataclass(frozen=True)
@@ -48,7 +48,7 @@ class CheckOutVisit:
         if visit.mission_id != cmd.mission_id:
             raise Conflict("Mission incohérente.")
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         check_out(visit, now=now)
         await self._uow.site_visits.save(visit)
 

@@ -53,7 +53,9 @@ def site_visit_to_domain(row: SiteVisitModel) -> SiteVisit:
 
 def apply_site_visit_to_row(visit: SiteVisit, row: SiteVisitModel) -> None:
     row.status = visit.status.value
-    row.host_validation_mode = visit.host_validation_mode.value if visit.host_validation_mode else None
+    row.host_validation_mode = (
+        visit.host_validation_mode.value if visit.host_validation_mode else None
+    )
     row.checked_in_at = visit.checked_in_at
     row.checked_out_at = visit.checked_out_at
     row.inspector_lat = visit.inspector_lat

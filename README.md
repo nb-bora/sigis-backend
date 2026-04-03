@@ -1,6 +1,18 @@
 # sigis-backend
 
+[![CI](https://github.com/nb-bora/sigis-backend/actions/workflows/ci.yml/badge.svg)](https://github.com/nb-bora/sigis-backend/actions/workflows/ci.yml)
+
 Backend **FastAPI** pour **SIGIS** (traçabilité des missions d’inspection scolaire) — structure **DDD** + **Clean Architecture**, conforme au cahier de modélisation métier.
+
+## Intégration continue (CI/CD)
+
+| Élément | Rôle |
+|--------|------|
+| [`.github/workflows/ci.yml`](.github/workflows/ci.yml) | **GitHub Actions** : Ruff (lint + format vérifié) puis **pytest** sur Python **3.11** et **3.12** à chaque push / PR vers `main` |
+| [`.github/dependabot.yml`](.github/dependabot.yml) | **Dependabot** : mises à jour hebdomadaires (pip) et mensuelles (actions) |
+| [`.pre-commit-config.yaml`](.pre-commit-config.yaml) | Hooks **Ruff** optionnels en local (`pip install pre-commit && pre-commit install`) |
+
+Exécution manuelle possible dans l’onglet **Actions** → workflow **CI** → **Run workflow**.
 
 ## Arborescence
 

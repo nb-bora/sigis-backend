@@ -2,9 +2,10 @@
 
 import json
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
+from application.use_cases.check_in_inspector import default_copresence_params
 from domain.errors import Conflict, NotFound
 from domain.presence.models import CoPresenceEvent, PresenceProof
 from domain.shared.copresence_rules import assert_copresence_mode_a
@@ -13,7 +14,6 @@ from domain.shared.fallback_validation import assert_qr_token_valid, assert_sms_
 from domain.shared.value_objects.geofence_status import GeofenceStatus
 from domain.shared.value_objects.host_validation_mode import HostValidationMode
 from domain.site_visit.transitions import mark_copresence_ok
-from application.use_cases.check_in_inspector import default_copresence_params
 from infrastructure.persistence.sqlalchemy.uow import SqlAlchemyUnitOfWork
 
 
@@ -59,7 +59,7 @@ class ConfirmHostPresence:
         if mode is None:
             raise Conflict("Mode de validation hôte non défini.")
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         if mode == HostValidationMode.APP_GPS:
             if cmd.latitude is None or cmd.longitude is None:

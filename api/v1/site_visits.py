@@ -5,8 +5,8 @@ from fastapi import APIRouter
 from api.deps import UoW, UserId
 from api.v1.schemas import CheckInBody, CheckOutBody, ConfirmHostBody
 from application.use_cases.check_in_inspector import CheckInInspector, CheckInInspectorCommand
-from application.use_cases.check_out_visit import CheckOutVisit, CheckOutCommand
-from application.use_cases.confirm_host_presence import ConfirmHostPresence, ConfirmHostCommand
+from application.use_cases.check_out_visit import CheckOutCommand, CheckOutVisit
+from application.use_cases.confirm_host_presence import ConfirmHostCommand, ConfirmHostPresence
 
 router = APIRouter(tags=["site-visits"])
 

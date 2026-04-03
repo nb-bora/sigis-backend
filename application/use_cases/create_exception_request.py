@@ -1,11 +1,11 @@
 """Signalement terrain (mini-workflow V1)."""
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from domain.exception_request.exception_request import ExceptionRequest, ExceptionRequestStatus
 from domain.errors import NotFound
+from domain.exception_request.exception_request import ExceptionRequest, ExceptionRequestStatus
 from infrastructure.persistence.sqlalchemy.uow import SqlAlchemyUnitOfWork
 
 
@@ -32,7 +32,7 @@ class CreateExceptionRequest:
             id=uuid4(),
             mission_id=cmd.mission_id,
             author_user_id=cmd.author_user_id,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
             status=ExceptionRequestStatus.NEW,
             message=cmd.message[:4000],
         )

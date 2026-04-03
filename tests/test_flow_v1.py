@@ -1,6 +1,6 @@
 """Flux minimal V1 : établissement → mission → check-in → hôte → check-out."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
@@ -30,7 +30,7 @@ def _run_flow(client: TestClient) -> None:
     assert r0.status_code == 200, r0.text
     eid = r0.json()["establishment_id"]
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     r1 = client.post(
         "/v1/missions",
         json={
@@ -77,5 +77,3 @@ def _run_flow(client: TestClient) -> None:
     )
     assert r4.status_code == 200, r4.text
     assert r4.json()["presence_duration_seconds"] is not None
-
-

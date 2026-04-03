@@ -4,7 +4,10 @@ from fastapi import APIRouter
 
 from api.deps import UoW, UserId
 from api.v1.schemas import CreateMissionBody, ExceptionBody
-from application.use_cases.create_exception_request import CreateExceptionCommand, CreateExceptionRequest
+from application.use_cases.create_exception_request import (
+    CreateExceptionCommand,
+    CreateExceptionRequest,
+)
 from application.use_cases.create_mission import CreateMission, CreateMissionCommand
 
 router = APIRouter(prefix="/missions", tags=["missions"])

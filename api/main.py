@@ -1,16 +1,16 @@
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+import infrastructure.persistence.sqlalchemy.models  # noqa: F401
 from api.v1.router import api_router
 from domain.errors import DomainError
 from infrastructure.config.settings import get_settings
 from infrastructure.persistence.sqlalchemy.base import Base
-import infrastructure.persistence.sqlalchemy.models  # noqa: F401
 
 
 @asynccontextmanager
