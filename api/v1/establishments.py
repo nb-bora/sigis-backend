@@ -2,14 +2,15 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter, Path
+from fastapi import APIRouter, Depends, Path
 
-from api.deps import UoW, UserId
+from api.deps import RequirePermissionDep, UoW, UserId
 from api.v1.schemas import CreateEstablishmentBody, UpdateEstablishmentBody
 from application.use_cases.create_mission import CreateEstablishment, CreateEstablishmentCommand
 from domain.errors import NotFound
+from domain.identity.permission import Permission
 
-router = APIRouter(prefix="/establishments", tags=["establishments"])
+router = APIRouter(prefix="/establishments", tags=["Établissements"])
 
 
 # ---------------------------------------------------------------------------
@@ -17,6 +18,7 @@ router = APIRouter(prefix="/establishments", tags=["establishments"])
 # ---------------------------------------------------------------------------
 @router.post(
     "",
+    dependencies=[Depends(RequirePermissionDep(Permission.ESTABLISHMENT_CREATE))],
     summary="Créer un établissement",
     description="""
 **Rôle :** Enregistre un nouvel établissement dans le référentiel géographique SIGIS.
@@ -58,6 +60,7 @@ async def create_establishment(
 # ---------------------------------------------------------------------------
 @router.get(
     "",
+    dependencies=[Depends(RequirePermissionDep(Permission.ESTABLISHMENT_READ))],
     summary="Lister tous les établissements",
     description="""
 **Rôle :** Retourne la liste complète des établissements enregistrés dans le référentiel.
@@ -86,6 +89,7 @@ async def list_establishments(uow: UoW, _user: UserId) -> list[dict[str, object]
 # ---------------------------------------------------------------------------
 @router.get(
     "/{establishment_id}",
+    dependencies=[Depends(RequirePermissionDep(Permission.ESTABLISHMENT_READ))],
     summary="Détail d'un établissement",
     description="""
 **Rôle :** Retourne les informations complètes d'un établissement identifié par son UUID.
@@ -119,6 +123,7 @@ async def get_establishment(
 # ---------------------------------------------------------------------------
 @router.patch(
     "/{establishment_id}",
+    dependencies=[Depends(RequirePermissionDep(Permission.ESTABLISHMENT_UPDATE))],
     summary="Modifier un établissement",
     description="""
 **Rôle :** Met à jour partiellement un établissement existant. Seuls les champs fournis sont modifiés (PATCH sémantique).

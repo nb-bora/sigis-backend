@@ -2,6 +2,10 @@ from typing import Self
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from infrastructure.persistence.sqlalchemy.auth_repos import (
+    PasswordResetTokenRepositoryImpl,
+    UserAuthRepositoryImpl,
+)
 from infrastructure.persistence.sqlalchemy.extra_repos import (
     CoPresenceEventRepositoryImpl,
     ExceptionRequestRepositoryImpl,
@@ -13,6 +17,7 @@ from infrastructure.persistence.sqlalchemy.repositories_impl import (
     MissionRepositoryImpl,
     SiteVisitRepositoryImpl,
 )
+from infrastructure.persistence.sqlalchemy.role_permission_repo import RolePermissionRepositoryImpl
 
 
 class SqlAlchemyUnitOfWork:
@@ -28,6 +33,9 @@ class SqlAlchemyUnitOfWork:
         self.copresence_events: CoPresenceEventRepositoryImpl | None = None
         self.exception_requests: ExceptionRequestRepositoryImpl | None = None
         self.idempotency: IdempotencyRepositoryImpl | None = None
+        self.users: UserAuthRepositoryImpl | None = None
+        self.reset_tokens: PasswordResetTokenRepositoryImpl | None = None
+        self.role_permissions: RolePermissionRepositoryImpl | None = None
 
     async def __aenter__(self) -> Self:
         self.session = self._session_factory()
@@ -39,6 +47,9 @@ class SqlAlchemyUnitOfWork:
         self.copresence_events = CoPresenceEventRepositoryImpl(self.session)
         self.exception_requests = ExceptionRequestRepositoryImpl(self.session)
         self.idempotency = IdempotencyRepositoryImpl(self.session)
+        self.users = UserAuthRepositoryImpl(self.session)
+        self.reset_tokens = PasswordResetTokenRepositoryImpl(self.session)
+        self.role_permissions = RolePermissionRepositoryImpl(self.session)
         return self
 
     async def __aexit__(
@@ -62,3 +73,6 @@ class SqlAlchemyUnitOfWork:
         self.copresence_events = None
         self.exception_requests = None
         self.idempotency = None
+        self.users = None
+        self.reset_tokens = None
+        self.role_permissions = None

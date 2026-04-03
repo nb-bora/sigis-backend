@@ -46,3 +46,27 @@ class IdempotencyReplay(DomainError):
 
 class Forbidden(DomainError):
     code = "FORBIDDEN"
+
+
+class Unauthorized(DomainError):
+    code = "UNAUTHORIZED"
+
+
+class EmailAlreadyExists(DomainError):
+    code = "EMAIL_ALREADY_EXISTS"
+
+
+class PhoneAlreadyExists(DomainError):
+    code = "PHONE_ALREADY_EXISTS"
+
+
+class InvalidCredentials(DomainError):
+    code = "INVALID_CREDENTIALS"
+
+
+class TokenExpiredOrInvalid(DomainError):
+    code = "TOKEN_EXPIRED_OR_INVALID"
+
+
+class AccountInactive(DomainError):
+    code = "ACCOUNT_INACTIVE"

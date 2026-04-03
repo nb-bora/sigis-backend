@@ -2,9 +2,9 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter, Path, Query
+from fastapi import APIRouter, Depends, Path, Query
 
-from api.deps import UoW, UserId
+from api.deps import RequirePermissionDep, UoW, UserId
 from api.v1.schemas import CreateMissionBody, ExceptionBody, UpdateMissionBody
 from application.use_cases.create_exception_request import (
     CreateExceptionCommand,
@@ -13,10 +13,11 @@ from application.use_cases.create_exception_request import (
 from application.use_cases.create_mission import CreateMission, CreateMissionCommand
 from domain.errors import Conflict, NotFound
 from domain.exception_request.exception_request import ExceptionRequest
+from domain.identity.permission import Permission
 from domain.mission.mission import Mission, MissionStatus
 from domain.site_visit.site_visit import SiteVisit
 
-router = APIRouter(prefix="/missions", tags=["missions"])
+router = APIRouter(prefix="/missions", tags=["Missions"])
 
 
 # ---------------------------------------------------------------------------
@@ -24,6 +25,7 @@ router = APIRouter(prefix="/missions", tags=["missions"])
 # ---------------------------------------------------------------------------
 @router.post(
     "",
+    dependencies=[Depends(RequirePermissionDep(Permission.MISSION_CREATE))],
     summary="Créer une mission",
     description="""
 **Rôle :** Planifie une nouvelle mission d'inspection : associe un inspecteur à un établissement sur une fenêtre horaire.
@@ -67,6 +69,7 @@ async def create_mission(body: CreateMissionBody, uow: UoW, _user: UserId) -> di
 # ---------------------------------------------------------------------------
 @router.get(
     "",
+    dependencies=[Depends(RequirePermissionDep(Permission.MISSION_READ))],
     summary="Lister les missions",
     description="""
 **Rôle :** Retourne la liste des missions, avec filtres optionnels. Utilisée par la supervision pour le suivi et les KPI d'adoption.
@@ -114,6 +117,7 @@ async def list_missions(
 # ---------------------------------------------------------------------------
 @router.get(
     "/{mission_id}",
+    dependencies=[Depends(RequirePermissionDep(Permission.MISSION_READ))],
     summary="Détail d'une mission",
     description="""
 **Rôle :** Retourne toutes les informations d'une mission identifiée par son UUID, incluant son statut courant, la fenêtre horaire et le `host_token` pour le QR code.
@@ -147,6 +151,7 @@ async def get_mission(
 # ---------------------------------------------------------------------------
 @router.patch(
     "/{mission_id}",
+    dependencies=[Depends(RequirePermissionDep(Permission.MISSION_UPDATE))],
     summary="Modifier une mission",
     description="""
 **Rôle :** Met à jour partiellement une mission existante. Permet de reporter la fenêtre horaire, d'annuler une mission ou de changer le code SMS.
@@ -206,6 +211,7 @@ async def update_mission(
 # ---------------------------------------------------------------------------
 @router.get(
     "/{mission_id}/site-visit",
+    dependencies=[Depends(RequirePermissionDep(Permission.VISIT_READ))],
     summary="Visite terrain d'une mission",
     description="""
 **Rôle :** Retourne la visite terrain (`SiteVisit`) associée à une mission. Une visite est créée lors du premier check-in de l'inspecteur.
@@ -246,6 +252,7 @@ async def get_mission_site_visit(
 # ---------------------------------------------------------------------------
 @router.get(
     "/{mission_id}/exception-requests",
+    dependencies=[Depends(RequirePermissionDep(Permission.EXCEPTION_READ))],
     summary="Signalements d'une mission",
     description="""
 **Rôle :** Retourne la liste de tous les signalements (périmètre incorrect, établissement fermé, absent, etc.) rattachés à une mission donnée.
@@ -283,6 +290,7 @@ async def list_mission_exceptions(
 # ---------------------------------------------------------------------------
 @router.post(
     "/{mission_id}/exception-requests",
+    dependencies=[Depends(RequirePermissionDep(Permission.EXCEPTION_CREATE))],
     summary="Créer un signalement",
     description="""
 **Rôle :** Permet à un inspecteur ou un responsable de signaler un problème bloquant lors d'une mission (périmètre géographique incorrect, établissement fermé, responsable absent, etc.). Garantit qu'aucune situation de blocage ne reste dans un « trou noir ».

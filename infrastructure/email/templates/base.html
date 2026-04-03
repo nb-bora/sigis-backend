@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{% block subject %}SIGIS{% endblock %}</title>
+  <style>
+    body { margin:0; padding:0; background:#f4f4f7; font-family:Arial,sans-serif; color:#333; }
+    .wrapper { max-width:600px; margin:32px auto; background:#fff; border-radius:8px;
+               overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,.08); }
+    .header { background:#1a5fa8; padding:28px 32px; text-align:center; }
+    .header img { height:40px; }
+    .header h1 { color:#fff; margin:12px 0 0; font-size:22px; letter-spacing:.5px; }
+    .body { padding:32px; line-height:1.7; }
+    .body h2 { color:#1a5fa8; margin-top:0; }
+    .btn { display:inline-block; margin:24px 0; padding:14px 28px; background:#1a5fa8;
+           color:#fff !important; text-decoration:none; border-radius:6px;
+           font-weight:bold; font-size:15px; }
+    .divider { border:none; border-top:1px solid #e8e8e8; margin:24px 0; }
+    .note { font-size:13px; color:#777; }
+    .footer { background:#f4f4f7; text-align:center; padding:20px 32px;
+              font-size:12px; color:#aaa; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="header">
+      <h1>SIGIS — Système d'Inspection et de Gestion des Inspections Scolaires</h1>
+    </div>
+    <div class="body">
+      {% block content %}{% endblock %}
+    </div>
+    <div class="footer">
+      © {{ year }} SIGIS Cameroun &nbsp;|&nbsp;
+      Ce message est automatique, merci de ne pas y répondre.<br/>
+      Ministère de l'Éducation de Base / Enseignements Secondaires — République du Cameroun
+    </div>
+  </div>
+</body>
+</html>

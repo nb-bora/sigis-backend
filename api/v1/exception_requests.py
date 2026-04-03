@@ -2,14 +2,15 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter, Path, Query
+from fastapi import APIRouter, Depends, Path, Query
 from pydantic import BaseModel, Field
 
-from api.deps import UoW, UserId
+from api.deps import RequirePermissionDep, UoW, UserId
 from domain.errors import NotFound
 from domain.exception_request.exception_request import ExceptionRequest, ExceptionRequestStatus
+from domain.identity.permission import Permission
 
-router = APIRouter(prefix="/exception-requests", tags=["exception-requests"])
+router = APIRouter(prefix="/exception-requests", tags=["Signalements"])
 
 
 class UpdateStatusBody(BaseModel):
@@ -40,6 +41,7 @@ def _exc_dict(e: ExceptionRequest) -> dict[str, object]:
 # ---------------------------------------------------------------------------
 @router.get(
     "",
+    dependencies=[Depends(RequirePermissionDep(Permission.EXCEPTION_READ))],
     summary="File de supervision — tous les signalements",
     description="""
 **Rôle :** Retourne la liste de tous les signalements terrain, filtrables par statut. Constitue la file de supervision V1 permettant aux responsables hiérarchiques de traiter les blocages signalés par les inspecteurs.
@@ -78,6 +80,7 @@ async def list_exception_requests(
 # ---------------------------------------------------------------------------
 @router.get(
     "/{exception_id}",
+    dependencies=[Depends(RequirePermissionDep(Permission.EXCEPTION_READ))],
     summary="Détail d'un signalement",
     description="""
 **Rôle :** Retourne le détail complet d'un signalement : mission concernée, auteur, date, statut actuel et message de description du problème.
@@ -111,6 +114,7 @@ async def get_exception_request(
 # ---------------------------------------------------------------------------
 @router.patch(
     "/{exception_id}/status",
+    dependencies=[Depends(RequirePermissionDep(Permission.EXCEPTION_UPDATE_STATUS))],
     summary="Mettre à jour le statut d'un signalement",
     description="""
 **Rôle :** Permet au superviseur de faire progresser un signalement dans le mini-workflow V1 : `new` → `acknowledged` → `resolved` ou `escalated`. Garantit que chaque signalement terrain est pris en charge et ne reste pas dans un « trou noir ».

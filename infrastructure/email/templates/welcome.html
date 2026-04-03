@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block subject %}Bienvenue sur SIGIS, {{ full_name }}{% endblock %}
+
+{% block content %}
+<h2>Bienvenue, {{ full_name }} !</h2>
+<p>
+  Votre compte <strong>SIGIS</strong> a été créé avec succès.
+  Vous pouvez dès à présent vous connecter à l'application.
+</p>
+
+<table style="background:#f8f9fc;border-radius:6px;padding:16px;width:100%;border-collapse:collapse;margin:16px 0;">
+  <tr>
+    <td style="padding:6px 12px;color:#555;width:40%;"><strong>Identifiant (e-mail)</strong></td>
+    <td style="padding:6px 12px;">{{ email }}</td>
+  </tr>
+  <tr>
+    <td style="padding:6px 12px;color:#555;"><strong>Rôle(s)</strong></td>
+    <td style="padding:6px 12px;">{{ roles | join(', ') }}</td>
+  </tr>
+</table>
+
+<a href="{{ frontend_url }}/login" class="btn">Se connecter à SIGIS</a>
+
+<hr class="divider"/>
+<p class="note">
+  Si vous n'êtes pas à l'origine de cette création de compte, veuillez contacter
+  immédiatement l'administrateur SIGIS.
+</p>
+{% endblock %}

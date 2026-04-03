@@ -46,6 +46,8 @@ def do_run_migrations(connection):  # type: ignore[no-untyped-def]
         connection=connection,
         target_metadata=target_metadata,
         compare_type=True,
+        # Nécessaire pour SQLite qui ne supporte pas ALTER COLUMN natif
+        render_as_batch=True,
     )
     with context.begin_transaction():
         context.run_migrations()

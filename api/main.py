@@ -9,8 +9,10 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 import infrastructure.persistence.sqlalchemy.models  # noqa: F401
 from api.v1.router import api_router
 from domain.errors import DomainError
+from domain.identity.role_defaults import all_default_permissions
 from infrastructure.config.settings import get_settings
 from infrastructure.persistence.sqlalchemy.base import Base
+from infrastructure.persistence.sqlalchemy.uow import SqlAlchemyUnitOfWork
 
 
 @asynccontextmanager
@@ -22,8 +24,21 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # Production : SIGIS_AUTO_CREATE_TABLES=false → utiliser `alembic upgrade head`.
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
     app.state.engine = engine
-    app.state.session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    app.state.session_factory = session_factory
+
+    # Initialise les permissions par défaut (idempotent : n'écrase pas les surcharges)
+    async with SqlAlchemyUnitOfWork(session_factory) as uow:
+        inserted = await uow.role_permissions.seed_defaults(all_default_permissions())
+        if inserted:
+            import logging
+
+            logging.getLogger(__name__).info(
+                "RBAC : %d permissions par défaut initialisées.", inserted
+            )
+
     yield
     await engine.dispose()
 

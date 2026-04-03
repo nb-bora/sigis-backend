@@ -3,8 +3,9 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 
+from domain.identity.role import Role
 from domain.shared.value_objects.host_validation_mode import HostValidationMode
 
 # ---------------------------------------------------------------------------
@@ -161,4 +162,94 @@ class ExceptionBody(BaseModel):
         min_length=1,
         max_length=4000,
         description="Description du problème rencontré (périmètre incorrect, établissement fermé, absent, etc.).",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Auth
+# ---------------------------------------------------------------------------
+
+
+class RegisterBody(BaseModel):
+    email: EmailStr = Field(..., description="Adresse e-mail unique de l'utilisateur.")
+    full_name: str = Field(
+        ..., min_length=2, max_length=255, description="Nom complet (prénom et nom)."
+    )
+    phone_number: str = Field(
+        ...,
+        description=(
+            "Numéro de téléphone camerounais à 9 chiffres (format national ou E.164 +237). "
+            "Mobiles acceptés : 65X-69X (MTN, Orange, NEXTTEL). "
+            "Fixes : 222XXXXXX, 233XXXXXX, 242XXXXXX, 243XXXXXX."
+        ),
+    )
+    password: str = Field(..., min_length=8, description="Mot de passe (8 caractères minimum).")
+    roles: list[Role] = Field(
+        default=[Role.INSPECTOR],
+        description="Liste des rôles assignés à l'utilisateur.",
+    )
+
+
+class LoginBody(BaseModel):
+    email: EmailStr = Field(..., description="Adresse e-mail du compte.")
+    password: str = Field(..., description="Mot de passe du compte.")
+
+
+class LoginResponse(BaseModel):
+    access_token: str = Field(..., description="JWT Bearer à inclure dans l'en-tête Authorization.")
+    token_type: str = Field(default="bearer", description="Type de jeton (toujours 'bearer').")
+    user_id: UUID = Field(..., description="Identifiant unique de l'utilisateur authentifié.")
+    roles: list[str] = Field(..., description="Liste des rôles de l'utilisateur.")
+
+
+class ChangePasswordBody(BaseModel):
+    current_password: str = Field(..., description="Mot de passe actuel.")
+    new_password: str = Field(
+        ..., min_length=8, description="Nouveau mot de passe (8 caractères min)."
+    )
+
+
+class RequestPasswordResetBody(BaseModel):
+    email: EmailStr = Field(
+        ...,
+        description="Adresse e-mail du compte pour lequel la réinitialisation est demandée.",
+    )
+
+
+class ResetPasswordBody(BaseModel):
+    token: str = Field(..., description="Jeton de réinitialisation reçu par e-mail.")
+    new_password: str = Field(
+        ..., min_length=8, description="Nouveau mot de passe (8 caractères min)."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Users
+# ---------------------------------------------------------------------------
+
+
+class UserResponse(BaseModel):
+    id: UUID = Field(..., description="Identifiant unique de l'utilisateur.")
+    email: str = Field(..., description="Adresse e-mail.")
+    full_name: str = Field(..., description="Nom complet.")
+    phone_number: str = Field(
+        ..., description="Numéro de téléphone en format E.164 (+237XXXXXXXXX)."
+    )
+    roles: list[str] = Field(..., description="Rôles attribués.")
+    is_active: bool = Field(..., description="Statut du compte (actif / désactivé).")
+    created_at: str = Field(..., description="Date de création du compte (ISO 8601 UTC).")
+
+
+class UpdateUserBody(BaseModel):
+    """Tous les champs sont optionnels — seuls les champs fournis sont mis à jour."""
+
+    full_name: str | None = Field(
+        None, min_length=2, max_length=255, description="Nouveau nom complet."
+    )
+    phone_number: str | None = Field(None, description="Nouveau numéro de téléphone camerounais.")
+    is_active: bool | None = Field(
+        None, description="Activer (true) ou désactiver (false) le compte."
+    )
+    roles: list[Role] | None = Field(
+        None, description="Nouvelle liste de rôles (remplace l'existante)."
     )

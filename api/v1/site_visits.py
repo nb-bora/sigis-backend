@@ -2,17 +2,18 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter, Path
+from fastapi import APIRouter, Depends, Path
 
-from api.deps import UoW, UserId
+from api.deps import RequirePermissionDep, UoW, UserId
 from api.v1.schemas import CheckInBody, CheckOutBody, ConfirmHostBody
 from application.use_cases.check_in_inspector import CheckInInspector, CheckInInspectorCommand
 from application.use_cases.check_out_visit import CheckOutCommand, CheckOutVisit
 from application.use_cases.confirm_host_presence import ConfirmHostCommand, ConfirmHostPresence
 from domain.errors import NotFound
+from domain.identity.permission import Permission
 from domain.site_visit.site_visit import SiteVisit
 
-router = APIRouter(tags=["site-visits"])
+router = APIRouter(tags=["Visites terrain"])
 
 
 # ---------------------------------------------------------------------------
@@ -20,6 +21,7 @@ router = APIRouter(tags=["site-visits"])
 # ---------------------------------------------------------------------------
 @router.get(
     "/site-visits/{site_visit_id}",
+    dependencies=[Depends(RequirePermissionDep(Permission.VISIT_READ))],
     summary="Détail d'une visite terrain",
     description="""
 **Rôle :** Retourne l'état complet d'une visite terrain identifiée par son UUID : statut, mode de validation, horodatages et positions GPS enregistrées.
@@ -56,6 +58,7 @@ async def get_site_visit(
 # ---------------------------------------------------------------------------
 @router.post(
     "/missions/{mission_id}/check-in",
+    dependencies=[Depends(RequirePermissionDep(Permission.VISIT_CHECKIN))],
     summary="Check-in de l'inspecteur",
     description="""
 **Rôle :** Enregistre l'arrivée de l'inspecteur sur le site. Vérifie que la position GPS est dans la zone autorisée et que la mission est en cours de fenêtre horaire. Crée la visite terrain et attend la validation du responsable.
@@ -115,6 +118,7 @@ async def check_in(
 # ---------------------------------------------------------------------------
 @router.post(
     "/site-visits/{site_visit_id}/host-confirmation",
+    dependencies=[Depends(RequirePermissionDep(Permission.VISIT_HOST_CONFIRM))],
     summary="Validation de présence par le responsable (hôte)",
     description="""
 **Rôle :** Enregistre la confirmation de présence par le responsable d'établissement. Constitue la deuxième moitié de la co-présence. Le comportement dépend du mode de validation choisi lors du check-in.
@@ -183,6 +187,7 @@ async def confirm_host(
 # ---------------------------------------------------------------------------
 @router.post(
     "/site-visits/{site_visit_id}/check-out",
+    dependencies=[Depends(RequirePermissionDep(Permission.VISIT_CHECKOUT))],
     summary="Check-out de l'inspecteur",
     description="""
 **Rôle :** Clôture la visite terrain. Calcule la durée de présence (`checked_out_at - checked_in_at`) et marque la visite `completed`. La co-présence doit avoir été validée au préalable.
