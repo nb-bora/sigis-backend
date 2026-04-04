@@ -50,7 +50,7 @@ jobs:
 
       - name: Alembic migrations (clean SQLite)
         env:
-          SIGIS_DATABASE_URL: sqlite+aiosqlite:///alembic_ci_check.db
+          SIGIS_DATABASE_URL: sqlite+aiosqlite:////tmp/alembic_ci_check.db
         run: python -m alembic upgrade head
 
   test:
@@ -62,9 +62,6 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.11", "3.12"]
-    env:
-      # Même logique que tests/conftest.py — base fichier dans le workspace du runner
-      SIGIS_DATABASE_URL: sqlite+aiosqlite:///sigis_test.db
     steps:
       - name: Checkout
         uses: actions/checkout@v4

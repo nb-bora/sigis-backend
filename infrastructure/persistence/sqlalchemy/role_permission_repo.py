@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain.identity.permission import Permission
 from domain.identity.role import Role
+from domain.identity.role_defaults import default_permissions_for
 from infrastructure.persistence.sqlalchemy.models import RolePermissionModel
 
 
@@ -114,10 +115,18 @@ class RolePermissionRepositoryImpl:
         """
         Insère les permissions par défaut manquantes (sans écraser l'existant).
 
+        Parcourt explicitement chaque valeur de ``Role`` pour que la base reçoive
+        au moins les lignes attendues pour tous les rôles (pas seulement les clés
+        présentes dans ``defaults``).
+
         Retourne le nombre d'entrées insérées.
         """
         inserted = 0
-        for role_value, perms in defaults.items():
+        for role in Role:
+            role_value = role.value
+            perms = defaults.get(role_value)
+            if perms is None:
+                perms = sorted(p.value for p in default_permissions_for(role))
             for perm_value in perms:
                 stmt = select(RolePermissionModel).where(
                     RolePermissionModel.role == role_value,
@@ -133,6 +142,31 @@ class RolePermissionRepositoryImpl:
                         )
                     )
                     inserted += 1
+        return inserted
+
+    async def ensure_catalog_permissions_present(self) -> int:
+        """
+        Garantit que chaque valeur de ``Permission`` apparaît au moins une fois
+        dans ``role_permissions`` (via le rôle ``SUPER_ADMIN``).
+
+        Couvre : catalogue étendu après déploiement, base incomplète, ou absence
+        totale de lignes. Idempotent (ne duplique pas une permission déjà présente
+        pour un rôle quelconque).
+        """
+        stmt = select(RolePermissionModel.permission).distinct()
+        result = await self._session.execute(stmt)
+        present = set(result.scalars().all())
+        inserted = 0
+        for perm in Permission:
+            if perm.value not in present:
+                self._session.add(
+                    RolePermissionModel(
+                        id=uuid.uuid4(),
+                        role=Role.SUPER_ADMIN.value,
+                        permission=perm.value,
+                    )
+                )
+                inserted += 1
         return inserted
 
     # ── privé ─────────────────────────────────────────────────────────────

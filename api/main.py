@@ -16,6 +16,10 @@ from domain.errors import DomainError
 from domain.identity.role_defaults import all_default_permissions
 from infrastructure.config.settings import get_settings
 from infrastructure.persistence.sqlalchemy.base import Base
+from infrastructure.persistence.sqlalchemy.schema_sync import (
+    ensure_users_role_column,
+    migrate_user_roles_table,
+)
 from infrastructure.persistence.sqlalchemy.uow import SqlAlchemyUnitOfWork
 
 
@@ -29,6 +33,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
 
+    # Bases SQLite anciennes : ``create_all`` n'ajoute pas les colonnes manquantes — aligner ``users.role``.
+    # Deux transactions : si la migration ``user_roles`` échoue, la colonne ``role`` reste créée.
+    async with engine.begin() as conn:
+        await conn.run_sync(ensure_users_role_column)
+    async with engine.begin() as conn:
+        await conn.run_sync(migrate_user_roles_table)
+
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
     app.state.engine = engine
     app.state.session_factory = session_factory
@@ -36,12 +47,20 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Initialise les permissions par défaut (idempotent : n'écrase pas les surcharges)
     async with SqlAlchemyUnitOfWork(session_factory) as uow:
         inserted = await uow.role_permissions.seed_defaults(all_default_permissions())
-        if inserted:
+        # Sécurité : chaque permission du catalogue enum doit exister en base
+        # (au moins une ligne ; en pratique SUPER_ADMIN reçoit tout au seed).
+        repaired = await uow.role_permissions.ensure_catalog_permissions_present()
+        if inserted or repaired:
             import logging
 
-            logging.getLogger(__name__).info(
-                "RBAC : %d permissions par défaut initialisées.", inserted
-            )
+            log = logging.getLogger(__name__)
+            if inserted:
+                log.info("RBAC : %d permissions par défaut initialisées.", inserted)
+            if repaired:
+                log.info(
+                    "RBAC : %d permissions du catalogue ajoutées (lignes manquantes).",
+                    repaired,
+                )
 
     yield
     await engine.dispose()

@@ -100,7 +100,9 @@ def default_permissions_for(role: Role) -> set[Permission]:
 
 def all_default_permissions() -> dict[str, list[str]]:
     """Retourne le dictionnaire complet rôle → liste de permissions (pour init DB)."""
+    # Toujours dériver de l'énumération Role pour qu'aucun rôle ne soit oublié
+    # si ROLE_DEFAULT_PERMISSIONS est incomplet par rapport à Role.
     return {
-        role.value: sorted(p.value for p in perms)
-        for role, perms in ROLE_DEFAULT_PERMISSIONS.items()
+        role.value: sorted(p.value for p in ROLE_DEFAULT_PERMISSIONS.get(role, set()))
+        for role in Role
     }

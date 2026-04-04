@@ -24,15 +24,21 @@ router = APIRouter(prefix="/reports", tags=["Pilotage"])
 async def reports_summary(uow: UoW, _user: UserId) -> dict[str, object]:
     assert uow.missions is not None
     assert uow.exception_requests is not None
+    assert uow.establishments is not None
+    assert uow.users is not None
     missions = await uow.missions.list_all()
     exceptions = await uow.exception_requests.list_all()
     m_by = Counter(m.status.value for m in missions)
     e_by = Counter(e.status.value for e in exceptions)
+    _, establishments_total = await uow.establishments.list_page(0, 1)
+    _, users_total = await uow.users.list_page(0, 1)
     return {
         "missions_total": len(missions),
         "missions_by_status": dict(m_by),
         "exception_requests_total": len(exceptions),
         "exception_requests_by_status": dict(e_by),
+        "establishments_total": establishments_total,
+        "users_total": users_total,
     }
 
 

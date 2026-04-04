@@ -10,8 +10,9 @@ from collections import defaultdict
 from collections.abc import Sequence
 
 import sqlalchemy as sa
-from alembic import op
 from sqlalchemy import text
+
+from alembic import op
 
 revision: str = "b2c3d4e5f6a7"
 down_revision: str | Sequence[str] | None = "a1b2c3d4e5f6"
@@ -53,7 +54,9 @@ def upgrade() -> None:
         text("UPDATE users SET role = 'INSPECTOR' WHERE role IS NULL"),
     )
 
-    op.alter_column("users", "role", existing_type=sa.String(length=64), nullable=False)
+    # SQLite : ALTER COLUMN … NOT NULL n'est pas supporté sans recréation de table
+    with op.batch_alter_table("users", schema=None) as batch_op:
+        batch_op.alter_column("role", existing_type=sa.String(length=64), nullable=False)
 
     op.drop_table("user_roles")
 
@@ -79,4 +82,5 @@ def downgrade() -> None:
             {"id": str(uuid.uuid4()), "uid": str(uid), "role": role},
         )
 
-    op.drop_column("users", "role")
+    with op.batch_alter_table("users", schema=None) as batch_op:
+        batch_op.drop_column("role")

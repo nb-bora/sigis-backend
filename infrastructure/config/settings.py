@@ -1,7 +1,19 @@
-from pydantic import model_validator
+from pathlib import Path
+
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _INSECURE_DEFAULT_KEY = "CHANGE_ME_IN_PRODUCTION_USE_LONG_RANDOM_STRING"
+
+
+def _backend_root() -> Path:
+    """Répertoire racine du backend (répertoire contenant ``sigis.db``)."""
+    return Path(__file__).resolve().parents[2]
+
+
+def _default_sqlite_database_url() -> str:
+    """SQLite unique du projet : ``sigis-backend/sigis.db`` (chemin absolu)."""
+    return f"sqlite+aiosqlite:///{(_backend_root() / 'sigis.db').as_posix()}"
 
 
 class Settings(BaseSettings):
@@ -10,7 +22,7 @@ class Settings(BaseSettings):
     env: str = "development"
     api_prefix: str = "/v1"
     cors_origins: str = "http://localhost:3000"
-    database_url: str = "sqlite+aiosqlite:///./sigis.db"
+    database_url: str = Field(default_factory=_default_sqlite_database_url)
     database_echo: bool = False
     # En production : mettre à false et utiliser `alembic upgrade head`
     auto_create_tables: bool = True
