@@ -5,7 +5,9 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from domain.errors import Conflict, Forbidden, GeofenceRejected, NotFound
+from application.ports.unit_of_work import UnitOfWork
+from domain.errors import Conflict, Forbidden, GeofenceRejected, MissionApprovalRequired, NotFound
+from domain.mission.mission import MissionStatus
 from domain.presence.models import PresenceProof
 from domain.shared.copresence_rules import CoPresenceParams
 from domain.shared.distance import haversine_m
@@ -14,7 +16,6 @@ from domain.shared.value_objects.geofence_status import GeofenceStatus
 from domain.shared.value_objects.host_validation_mode import HostValidationMode
 from domain.site_visit.site_visit import SiteVisit, SiteVisitStatus
 from domain.site_visit.transitions import ensure_mission_window, start_check_in
-from infrastructure.persistence.sqlalchemy.uow import SqlAlchemyUnitOfWork
 
 
 @dataclass(frozen=True)
@@ -28,7 +29,7 @@ class CheckInInspectorCommand:
 
 
 class CheckInInspector:
-    def __init__(self, uow: SqlAlchemyUnitOfWork) -> None:
+    def __init__(self, uow: UnitOfWork) -> None:
         self._uow = uow
 
     async def execute(self, cmd: CheckInInspectorCommand) -> dict[str, object]:
@@ -46,6 +47,10 @@ class CheckInInspector:
         mission = await self._uow.missions.get_by_id(cmd.mission_id)
         if mission is None:
             raise NotFound("Mission introuvable.")
+        if mission.status == MissionStatus.DRAFT:
+            raise MissionApprovalRequired(
+                "La mission doit être validée (passage planned) avant tout check-in."
+            )
         if mission.inspector_id != cmd.inspector_user_id:
             raise Forbidden("Cet inspecteur n'est pas assigné à la mission.")
 

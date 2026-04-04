@@ -7,9 +7,11 @@ from infrastructure.persistence.sqlalchemy.auth_repos import (
     UserAuthRepositoryImpl,
 )
 from infrastructure.persistence.sqlalchemy.extra_repos import (
+    AuditLogRepositoryImpl,
     CoPresenceEventRepositoryImpl,
     ExceptionRequestRepositoryImpl,
     IdempotencyRepositoryImpl,
+    MissionOutcomeRepositoryImpl,
     PresenceProofRepositoryImpl,
 )
 from infrastructure.persistence.sqlalchemy.repositories_impl import (
@@ -36,6 +38,8 @@ class SqlAlchemyUnitOfWork:
         self.users: UserAuthRepositoryImpl | None = None
         self.reset_tokens: PasswordResetTokenRepositoryImpl | None = None
         self.role_permissions: RolePermissionRepositoryImpl | None = None
+        self.mission_outcomes: MissionOutcomeRepositoryImpl | None = None
+        self.audit_logs: AuditLogRepositoryImpl | None = None
 
     async def __aenter__(self) -> Self:
         self.session = self._session_factory()
@@ -50,6 +54,8 @@ class SqlAlchemyUnitOfWork:
         self.users = UserAuthRepositoryImpl(self.session)
         self.reset_tokens = PasswordResetTokenRepositoryImpl(self.session)
         self.role_permissions = RolePermissionRepositoryImpl(self.session)
+        self.mission_outcomes = MissionOutcomeRepositoryImpl(self.session)
+        self.audit_logs = AuditLogRepositoryImpl(self.session)
         return self
 
     async def __aexit__(
@@ -76,3 +82,5 @@ class SqlAlchemyUnitOfWork:
         self.users = None
         self.reset_tokens = None
         self.role_permissions = None
+        self.mission_outcomes = None
+        self.audit_logs = None

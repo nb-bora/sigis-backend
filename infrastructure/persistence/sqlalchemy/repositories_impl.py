@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain.establishment.establishment import Establishment
@@ -31,6 +31,23 @@ class EstablishmentRepositoryImpl:
         result = await self._session.execute(select(EstablishmentModel))
         return [establishment_to_domain(r) for r in result.scalars().all()]
 
+    async def list_page(
+        self,
+        offset: int,
+        limit: int,
+        *,
+        territory_code: str | None = None,
+    ) -> tuple[list[Establishment], int]:
+        q = select(EstablishmentModel)
+        if territory_code is not None:
+            q = q.where(EstablishmentModel.territory_code == territory_code)
+        count_stmt = select(func.count()).select_from(q.subquery())
+        total = (await self._session.execute(count_stmt)).scalar_one()
+        q = q.order_by(EstablishmentModel.name).offset(offset).limit(limit)
+        result = await self._session.execute(q)
+        rows = [establishment_to_domain(r) for r in result.scalars().all()]
+        return rows, int(total)
+
     async def add(self, est: Establishment) -> None:
         self._session.add(
             EstablishmentModel(
@@ -41,11 +58,19 @@ class EstablishmentRepositoryImpl:
                 radius_strict_m=est.radius_strict_m,
                 radius_relaxed_m=est.radius_relaxed_m,
                 geometry_version=est.geometry_version,
+                minesec_code=est.minesec_code,
+                establishment_type=est.establishment_type,
+                contact_email=est.contact_email,
+                contact_phone=est.contact_phone,
+                territory_code=est.territory_code,
+                parent_establishment_id=est.parent_establishment_id,
+                designated_host_user_id=est.designated_host_user_id,
+                geometry_validated_at=est.geometry_validated_at,
+                geometry_validated_by_user_id=est.geometry_validated_by_user_id,
             )
         )
 
     async def update(self, est: Establishment) -> None:
-        """Persiste les modifications d'un établissement existant."""
         row = await self._session.get(EstablishmentModel, est.id)
         if row is None:
             return
@@ -55,6 +80,15 @@ class EstablishmentRepositoryImpl:
         row.radius_strict_m = est.radius_strict_m
         row.radius_relaxed_m = est.radius_relaxed_m
         row.geometry_version = est.geometry_version
+        row.minesec_code = est.minesec_code
+        row.establishment_type = est.establishment_type
+        row.contact_email = est.contact_email
+        row.contact_phone = est.contact_phone
+        row.territory_code = est.territory_code
+        row.parent_establishment_id = est.parent_establishment_id
+        row.designated_host_user_id = est.designated_host_user_id
+        row.geometry_validated_at = est.geometry_validated_at
+        row.geometry_validated_by_user_id = est.geometry_validated_by_user_id
 
 
 class MissionRepositoryImpl:
@@ -70,16 +104,65 @@ class MissionRepositoryImpl:
         inspector_id: UUID | None = None,
         establishment_id: UUID | None = None,
         status: str | None = None,
+        territory_code: str | None = None,
     ) -> list[Mission]:
+        rows, _ = await self.list_page(
+            0,
+            10_000,
+            inspector_id=inspector_id,
+            establishment_id=establishment_id,
+            status=status,
+            territory_code=territory_code,
+        )
+        return rows
+
+    def _mission_select_filtered(
+        self,
+        *,
+        inspector_id: UUID | None,
+        establishment_id: UUID | None,
+        status: str | None,
+        territory_code: str | None,
+    ):
         q = select(MissionModel)
+        if territory_code is not None:
+            q = q.join(EstablishmentModel, MissionModel.establishment_id == EstablishmentModel.id)
+            q = q.where(EstablishmentModel.territory_code == territory_code)
         if inspector_id is not None:
             q = q.where(MissionModel.inspector_id == inspector_id)
         if establishment_id is not None:
             q = q.where(MissionModel.establishment_id == establishment_id)
         if status is not None:
             q = q.where(MissionModel.status == status)
+        return q
+
+    async def list_page(
+        self,
+        offset: int,
+        limit: int,
+        *,
+        inspector_id: UUID | None = None,
+        establishment_id: UUID | None = None,
+        status: str | None = None,
+        territory_code: str | None = None,
+    ) -> tuple[list[Mission], int]:
+        q = self._mission_select_filtered(
+            inspector_id=inspector_id,
+            establishment_id=establishment_id,
+            status=status,
+            territory_code=territory_code,
+        )
+        count_stmt = select(func.count()).select_from(q.subquery())
+        total = (await self._session.execute(count_stmt)).scalar_one()
+        q = self._mission_select_filtered(
+            inspector_id=inspector_id,
+            establishment_id=establishment_id,
+            status=status,
+            territory_code=territory_code,
+        )
+        q = q.order_by(MissionModel.window_start.desc()).offset(offset).limit(limit)
         result = await self._session.execute(q)
-        return [mission_to_domain(r) for r in result.scalars().all()]
+        return [mission_to_domain(r) for r in result.scalars().all()], int(total)
 
     async def save(self, mission: Mission) -> None:
         row = await self._session.get(MissionModel, mission.id)
@@ -96,6 +179,14 @@ class MissionRepositoryImpl:
                     status=mission.status.value,
                     host_token=mission.host_token,
                     sms_code=mission.sms_code,
+                    designated_host_user_id=mission.designated_host_user_id,
+                    objective=mission.objective,
+                    plan_reference=mission.plan_reference,
+                    requires_approval=mission.requires_approval,
+                    cancellation_reason=mission.cancellation_reason,
+                    cancelled_at=mission.cancelled_at,
+                    cancelled_by_user_id=mission.cancelled_by_user_id,
+                    previous_mission_id=mission.previous_mission_id,
                 )
             )
             return
@@ -105,9 +196,18 @@ class MissionRepositoryImpl:
         if mission.host_token is not None:
             row.host_token = mission.host_token
         row.sms_code = mission.sms_code
+        row.designated_host_user_id = mission.designated_host_user_id
+        row.objective = mission.objective
+        row.plan_reference = mission.plan_reference
+        row.requires_approval = mission.requires_approval
+        row.cancellation_reason = mission.cancellation_reason
+        row.cancelled_at = mission.cancelled_at
+        row.cancelled_by_user_id = mission.cancelled_by_user_id
+        row.previous_mission_id = mission.previous_mission_id
+        row.inspector_id = mission.inspector_id
+        row.establishment_id = mission.establishment_id
 
     async def update(self, mission: Mission) -> None:
-        """Alias explicite pour la mise à jour partielle d'une mission existante."""
         await self.save(mission)
 
 

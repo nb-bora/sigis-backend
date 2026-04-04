@@ -48,6 +48,18 @@ class Forbidden(DomainError):
     code = "FORBIDDEN"
 
 
+class HostNotAuthorized(DomainError):
+    """L'utilisateur n'est pas l'hôte désigné pour cette mission / établissement."""
+
+    code = "HOST_NOT_AUTHORIZED"
+
+
+class MissionApprovalRequired(DomainError):
+    """Mission en brouillon, en attente de validation hiérarchique."""
+
+    code = "MISSION_APPROVAL_REQUIRED"
+
+
 class Unauthorized(DomainError):
     code = "UNAUTHORIZED"
 

@@ -62,7 +62,7 @@ def test_expired_token_returns_401(client: TestClient) -> None:
 
 
 def test_invalid_signature_returns_401(client: TestClient) -> None:
-    token = _make_token(str(uuid4()), [], secret="wrong-secret")
+    token = _make_token(str(uuid4()), [], secret="wrong-secret-key-not-the-same-as-test-suite-xxx")
     r = client.get("/v1/users", headers=_auth(token))
     assert r.status_code == 401
 

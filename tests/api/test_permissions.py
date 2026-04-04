@@ -118,6 +118,9 @@ def test_request_password_reset_public(client: TestClient) -> None:
         ("GET", "/v1/exception-requests", None),
         ("GET", f"/v1/exception-requests/{uuid4()}", None),
         ("PATCH", f"/v1/exception-requests/{uuid4()}/status", {"status": "acknowledged"}),
+        ("GET", "/v1/reports/summary", None),
+        ("GET", "/v1/reports/missions.csv", None),
+        ("GET", "/v1/audit-logs", None),
     ],
 )
 def test_protected_route_returns_401_without_auth(

@@ -2,15 +2,36 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Path, Query
+from fastapi import APIRouter, Depends, Path, Query, Request
 
-from api.deps import RequirePermissionDep, UoW, UserId
-from api.v1.schemas import CreateMissionBody, ExceptionBody, UpdateMissionBody
+from api.deps import RequirePermissionDep, SettingsDep, UoW, UserId
+from api.v1.schemas import (
+    CancelMissionBody,
+    CreateMissionBody,
+    ExceptionBody,
+    ReassignMissionBody,
+    SubmitMissionOutcomeBody,
+    UpdateMissionBody,
+)
 from application.use_cases.create_exception_request import (
     CreateExceptionCommand,
     CreateExceptionRequest,
 )
 from application.use_cases.create_mission import CreateMission, CreateMissionCommand
+from application.use_cases.mission_workflow import (
+    ApproveMission,
+    ApproveMissionCommand,
+    CancelMission,
+    CancelMissionCommand,
+    ReassignInspector,
+    ReassignInspectorCommand,
+    SubmitMissionOutcome,
+    SubmitMissionOutcomeCommand,
+)
+from common.audit import write_audit
+from common.business_notifications import notify_mission_cancelled
+from common.host_qr_jwt import create_host_qr_jwt
+from common.pagination import Page, PageParams
 from domain.errors import Conflict, NotFound
 from domain.exception_request.exception_request import ExceptionRequest
 from domain.identity.permission import Permission
@@ -60,6 +81,10 @@ async def create_mission(body: CreateMissionBody, uow: UoW, _user: UserId) -> di
             window_start=body.window_start,
             window_end=body.window_end,
             sms_code=body.sms_code,
+            objective=body.objective,
+            plan_reference=body.plan_reference,
+            requires_approval=body.requires_approval,
+            designated_host_user_id=body.designated_host_user_id,
         )
     )
 
@@ -94,22 +119,34 @@ async def create_mission(body: CreateMissionBody, uow: UoW, _user: UserId) -> di
 async def list_missions(
     uow: UoW,
     _user: UserId,
+    pagination: PageParams = Depends(),
     inspector_id: UUID | None = Query(default=None, description="Filtre par UUID de l'inspecteur."),
     establishment_id: UUID | None = Query(
         default=None, description="Filtre par UUID de l'établissement."
     ),
     status: str | None = Query(
         default=None,
-        description="Filtre par statut : planned | in_progress | completed | cancelled.",
+        description="Filtre par statut : draft | planned | in_progress | completed | cancelled.",
     ),
-) -> list[dict[str, object]]:
+    territory_code: str | None = Query(
+        default=None, description="Filtre par code territoire de l'établissement."
+    ),
+) -> Page[dict[str, object]]:
     assert uow.missions is not None
-    items = await uow.missions.list_all(
+    items, total = await uow.missions.list_page(
+        pagination.skip,
+        pagination.limit,
         inspector_id=inspector_id,
         establishment_id=establishment_id,
         status=status,
+        territory_code=territory_code,
     )
-    return [_mission_dict(m) for m in items]
+    return Page(
+        items=[_mission_dict(m) for m in items],
+        total=total,
+        skip=pagination.skip,
+        limit=pagination.limit,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -201,9 +238,220 @@ async def update_mission(
             raise Conflict(f"Statut inconnu : {body.status}.")
     if body.sms_code is not None:
         mission.sms_code = body.sms_code
+    if body.designated_host_user_id is not None:
+        mission.designated_host_user_id = body.designated_host_user_id
+    if body.objective is not None:
+        mission.objective = body.objective
+    if body.plan_reference is not None:
+        mission.plan_reference = body.plan_reference
 
     await uow.missions.update(mission)
     return _mission_dict(mission)
+
+
+# ---------------------------------------------------------------------------
+# POST /missions/{id}/approve — Validation hiérarchique (draft → planned)
+# ---------------------------------------------------------------------------
+@router.post(
+    "/{mission_id}/approve",
+    dependencies=[Depends(RequirePermissionDep(Permission.MISSION_APPROVE))],
+    summary="Valider une mission en brouillon",
+)
+async def approve_mission(
+    mission_id: UUID = Path(...),
+    uow: UoW = ...,
+    user: UserId = ...,
+    request: Request = ...,
+) -> dict[str, object]:
+    uc = ApproveMission(uow)
+    mission = await uc.execute(ApproveMissionCommand(mission_id=mission_id, approver_user_id=user))
+    rid = getattr(request.state, "request_id", None)
+    await write_audit(
+        uow,
+        actor_user_id=user,
+        action="mission.approve",
+        resource_type="mission",
+        resource_id=mission_id,
+        payload={"status": mission.status.value},
+        request_id=rid,
+    )
+    return _mission_dict(mission)
+
+
+# ---------------------------------------------------------------------------
+# POST /missions/{id}/cancel — Annulation avec motif
+# ---------------------------------------------------------------------------
+@router.post(
+    "/{mission_id}/cancel",
+    dependencies=[Depends(RequirePermissionDep(Permission.MISSION_CANCEL))],
+    summary="Annuler une mission avec motif",
+)
+async def cancel_mission_ep(
+    mission_id: UUID = Path(...),
+    body: CancelMissionBody = ...,
+    uow: UoW = ...,
+    user: UserId = ...,
+    request: Request = ...,
+) -> dict[str, object]:
+    uc = CancelMission(uow)
+    mission = await uc.execute(
+        CancelMissionCommand(
+            mission_id=mission_id,
+            reason=body.reason,
+            cancelled_by_user_id=user,
+        )
+    )
+    rid = getattr(request.state, "request_id", None)
+    await write_audit(
+        uow,
+        actor_user_id=user,
+        action="mission.cancel",
+        resource_type="mission",
+        resource_id=mission_id,
+        payload={"reason": body.reason[:500]},
+        request_id=rid,
+    )
+    await notify_mission_cancelled(mission_id, body.reason)
+    return _mission_dict(mission)
+
+
+# ---------------------------------------------------------------------------
+# POST /missions/{id}/reassign — Réaffectation inspecteur
+# ---------------------------------------------------------------------------
+@router.post(
+    "/{mission_id}/reassign",
+    dependencies=[Depends(RequirePermissionDep(Permission.MISSION_REASSIGN))],
+    summary="Réaffecter l'inspecteur (nouvelle mission, ancienne annulée)",
+)
+async def reassign_mission(
+    mission_id: UUID = Path(...),
+    body: ReassignMissionBody = ...,
+    uow: UoW = ...,
+    user: UserId = ...,
+    request: Request = ...,
+) -> dict[str, object]:
+    uc = ReassignInspector(uow)
+    mission = await uc.execute(
+        ReassignInspectorCommand(
+            mission_id=mission_id,
+            new_inspector_id=body.new_inspector_id,
+            actor_user_id=user,
+        )
+    )
+    rid = getattr(request.state, "request_id", None)
+    await write_audit(
+        uow,
+        actor_user_id=user,
+        action="mission.reassign",
+        resource_type="mission",
+        resource_id=mission.id,
+        payload={"from_mission_id": str(mission_id), "inspector_id": str(mission.inspector_id)},
+        request_id=rid,
+    )
+    return _mission_dict(mission)
+
+
+# ---------------------------------------------------------------------------
+# POST /missions/{id}/outcome — Rapport de mission
+# ---------------------------------------------------------------------------
+@router.post(
+    "/{mission_id}/outcome",
+    dependencies=[Depends(RequirePermissionDep(Permission.MISSION_OUTCOME_WRITE))],
+    summary="Soumettre le rapport de mission (MissionOutcome)",
+)
+async def post_mission_outcome(
+    mission_id: UUID = Path(...),
+    body: SubmitMissionOutcomeBody = ...,
+    uow: UoW = ...,
+    user: UserId = ...,
+    request: Request = ...,
+) -> dict[str, object]:
+    uc = SubmitMissionOutcome(uow)
+    outcome = await uc.execute(
+        SubmitMissionOutcomeCommand(
+            mission_id=mission_id,
+            summary=body.summary,
+            notes=body.notes,
+            compliance_level=body.compliance_level,
+            author_user_id=user,
+        )
+    )
+    rid = getattr(request.state, "request_id", None)
+    await write_audit(
+        uow,
+        actor_user_id=user,
+        action="mission.outcome",
+        resource_type="mission",
+        resource_id=mission_id,
+        payload={"outcome_id": str(outcome.id)},
+        request_id=rid,
+    )
+    return {
+        "id": str(outcome.id),
+        "mission_id": str(outcome.mission_id),
+        "summary": outcome.summary,
+        "notes": outcome.notes,
+        "compliance_level": outcome.compliance_level,
+        "created_at": outcome.created_at.isoformat(),
+        "created_by_user_id": str(outcome.created_by_user_id),
+    }
+
+
+# ---------------------------------------------------------------------------
+# GET /missions/{id}/outcome — Détail rapport
+# ---------------------------------------------------------------------------
+@router.get(
+    "/{mission_id}/outcome",
+    dependencies=[Depends(RequirePermissionDep(Permission.MISSION_READ))],
+    summary="Lire le rapport de mission",
+)
+async def get_mission_outcome(
+    mission_id: UUID = Path(...),
+    uow: UoW = ...,
+    _user: UserId = ...,
+) -> dict[str, object]:
+    assert uow.mission_outcomes is not None
+    o = await uow.mission_outcomes.get_by_mission_id(mission_id)
+    if o is None:
+        raise NotFound("Aucun rapport pour cette mission.")
+    return {
+        "id": str(o.id),
+        "mission_id": str(o.mission_id),
+        "summary": o.summary,
+        "notes": o.notes,
+        "compliance_level": o.compliance_level,
+        "created_at": o.created_at.isoformat(),
+        "created_by_user_id": str(o.created_by_user_id),
+    }
+
+
+# ---------------------------------------------------------------------------
+# GET /missions/{id}/host-qr-jwt — JWT court pour QR dynamique
+# ---------------------------------------------------------------------------
+@router.get(
+    "/{mission_id}/host-qr-jwt",
+    dependencies=[Depends(RequirePermissionDep(Permission.MISSION_READ))],
+    summary="Obtenir un JWT court pour QR hôte (mode B renforcé)",
+)
+async def get_host_qr_jwt(
+    mission_id: UUID = Path(...),
+    uow: UoW = ...,
+    settings: SettingsDep = ...,
+    _user: UserId = ...,
+) -> dict[str, object]:
+    assert uow.missions is not None
+    mission = await uow.missions.get_by_id(mission_id)
+    if mission is None:
+        raise NotFound("Mission introuvable.")
+    if settings.host_qr_jwt_ttl_minutes <= 0:
+        raise Conflict("Émission JWT QR désactivée (SIGIS_HOST_QR_JWT_TTL_MINUTES=0).")
+    token = create_host_qr_jwt(
+        secret_key=settings.secret_key,
+        algorithm=settings.jwt_algorithm,
+        ttl_minutes=settings.host_qr_jwt_ttl_minutes,
+        mission=mission,
+    )
+    return {"host_qr_jwt": token, "expires_in_minutes": settings.host_qr_jwt_ttl_minutes}
 
 
 # ---------------------------------------------------------------------------
@@ -343,6 +591,17 @@ def _mission_dict(m: Mission) -> dict[str, object]:
         "window_end": m.window_end.isoformat(),
         "status": m.status.value,
         "host_token": str(m.host_token) if m.host_token else None,
+        "sms_code": m.sms_code,
+        "designated_host_user_id": str(m.designated_host_user_id)
+        if m.designated_host_user_id
+        else None,
+        "objective": m.objective,
+        "plan_reference": m.plan_reference,
+        "requires_approval": m.requires_approval,
+        "cancellation_reason": m.cancellation_reason,
+        "cancelled_at": m.cancelled_at.isoformat() if m.cancelled_at else None,
+        "cancelled_by_user_id": str(m.cancelled_by_user_id) if m.cancelled_by_user_id else None,
+        "previous_mission_id": str(m.previous_mission_id) if m.previous_mission_id else None,
     }
 
 
@@ -369,4 +628,8 @@ def _exception_dict(e: ExceptionRequest) -> dict[str, object]:
         "created_at": e.created_at.isoformat(),
         "status": e.status.value,
         "message": e.message,
+        "assigned_to_user_id": str(e.assigned_to_user_id) if e.assigned_to_user_id else None,
+        "internal_comment": e.internal_comment,
+        "sla_due_at": e.sla_due_at.isoformat() if e.sla_due_at else None,
+        "attachment_url": e.attachment_url,
     }

@@ -3,11 +3,15 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 import infrastructure.persistence.sqlalchemy.models  # noqa: F401
+from api.middleware.request_id import RequestIdMiddleware
 from api.v1.router import api_router
+from common.http_errors import domain_error_to_http
+from common.openapi_errors import ErrorResponse
 from domain.errors import DomainError
 from domain.identity.role_defaults import all_default_permissions
 from infrastructure.config.settings import get_settings
@@ -52,17 +56,35 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
+    def custom_openapi() -> dict:
+        if app.openapi_schema:
+            return app.openapi_schema
+        openapi_schema = get_openapi(
+            title=app.title,
+            version=app.version,
+            routes=app.routes,
+            description=app.description,
+        )
+        openapi_schema.setdefault("components", {}).setdefault("schemas", {})[
+            "ErrorResponse"
+        ] = ErrorResponse.model_json_schema()
+        app.openapi_schema = openapi_schema
+        return app.openapi_schema
+
+    app.openapi = custom_openapi  # type: ignore[method-assign]
+
     @app.exception_handler(DomainError)
-    async def domain_error_handler(_request: Request, exc: DomainError) -> JSONResponse:
-        status_code = 400
-        if exc.code == "NOT_FOUND":
-            status_code = 404
-        elif exc.code == "FORBIDDEN":
-            status_code = 403
-        elif exc.code == "CONFLICT":
-            status_code = 409
-        body = {"code": exc.code, "message": str(exc)}
-        return JSONResponse(status_code=status_code, content=body)
+    async def domain_error_handler(request: Request, exc: DomainError) -> JSONResponse:
+        rid = getattr(request.state, "request_id", None)
+        http_exc = domain_error_to_http(exc)
+        detail = http_exc.detail
+        if isinstance(detail, dict):
+            body = {**detail, "request_id": rid}
+            return JSONResponse(status_code=http_exc.status_code, content=body)
+        return JSONResponse(
+            status_code=http_exc.status_code,
+            content={"code": exc.code, "message": str(detail), "request_id": rid},
+        )
 
     origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
     # CORS: allow_credentials=True est incompatible avec allow_origins=["*"].
@@ -85,6 +107,8 @@ def create_app() -> FastAPI:
             allow_methods=["*"],
             allow_headers=["*"],
         )
+    # Dernier middleware ajouté = premier exécuté sur la requête entrante (corrélation request_id).
+    app.add_middleware(RequestIdMiddleware)
     app.include_router(api_router, prefix=settings.api_prefix)
     return app
 

@@ -5,8 +5,12 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
+from application.ports.settings_port import AppSettings
+from application.ports.unit_of_work import UnitOfWork
 from application.use_cases.check_in_inspector import default_copresence_params
-from domain.errors import Conflict, NotFound
+from common.host_qr_jwt import verify_host_qr_jwt
+from domain.errors import Conflict, HostNotAuthorized, MissionApprovalRequired, NotFound
+from domain.mission.mission import MissionStatus
 from domain.presence.models import CoPresenceEvent, PresenceProof
 from domain.shared.copresence_rules import assert_copresence_mode_a
 from domain.shared.distance import haversine_m
@@ -14,7 +18,6 @@ from domain.shared.fallback_validation import assert_qr_token_valid, assert_sms_
 from domain.shared.value_objects.geofence_status import GeofenceStatus
 from domain.shared.value_objects.host_validation_mode import HostValidationMode
 from domain.site_visit.transitions import mark_copresence_ok
-from infrastructure.persistence.sqlalchemy.uow import SqlAlchemyUnitOfWork
 
 
 @dataclass(frozen=True)
@@ -26,12 +29,14 @@ class ConfirmHostCommand:
     latitude: float | None = None
     longitude: float | None = None
     qr_token: UUID | None = None
+    qr_jwt: str | None = None
     sms_code: str | None = None
 
 
 class ConfirmHostPresence:
-    def __init__(self, uow: SqlAlchemyUnitOfWork) -> None:
+    def __init__(self, uow: UnitOfWork, settings: AppSettings) -> None:
         self._uow = uow
+        self._settings = settings
 
     async def execute(self, cmd: ConfirmHostCommand) -> dict[str, object]:
         assert self._uow.idempotency is not None
@@ -54,6 +59,19 @@ class ConfirmHostPresence:
         mission = await self._uow.missions.get_by_id(cmd.mission_id)
         if mission is None:
             raise NotFound("Mission introuvable.")
+        if mission.status == MissionStatus.DRAFT:
+            raise MissionApprovalRequired(
+                "La mission est en attente de validation hiérarchique (statut draft)."
+            )
+
+        est = await self._uow.establishments.get_by_id(mission.establishment_id)
+        if est is None:
+            raise NotFound("Établissement introuvable.")
+        designated = mission.designated_host_user_id or est.designated_host_user_id
+        if designated is not None and cmd.host_user_id != designated:
+            raise HostNotAuthorized(
+                "Seul l'hôte désigné (mission ou établissement) peut confirmer la co-présence."
+            )
 
         mode = visit.host_validation_mode
         if mode is None:
@@ -82,15 +100,23 @@ class ConfirmHostPresence:
             visit.host_lon = cmd.longitude
 
         elif mode == HostValidationMode.QR_STATIC:
-            if cmd.qr_token is None or mission.host_token is None:
-                raise Conflict("Jeton QR requis.")
-            assert_qr_token_valid(
-                cmd.qr_token,
-                mission.host_token,
-                now,
-                mission.window_start,
-                mission.window_end,
-            )
+            if cmd.qr_jwt is not None:
+                verify_host_qr_jwt(
+                    secret_key=self._settings.secret_key,
+                    algorithm=self._settings.jwt_algorithm,
+                    token=cmd.qr_jwt,
+                    mission=mission,
+                )
+            elif cmd.qr_token is not None and mission.host_token is not None:
+                assert_qr_token_valid(
+                    cmd.qr_token,
+                    mission.host_token,
+                    now,
+                    mission.window_start,
+                    mission.window_end,
+                )
+            else:
+                raise Conflict("Jeton QR (UUID ou JWT) requis.")
 
         elif mode == HostValidationMode.SMS_SHORTCODE:
             if cmd.sms_code is None:

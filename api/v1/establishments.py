@@ -2,11 +2,12 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Path
+from fastapi import APIRouter, Depends, Path, Query
 
 from api.deps import RequirePermissionDep, UoW, UserId
 from api.v1.schemas import CreateEstablishmentBody, UpdateEstablishmentBody
 from application.use_cases.create_mission import CreateEstablishment, CreateEstablishmentCommand
+from common.pagination import Page, PageParams
 from domain.errors import NotFound
 from domain.identity.permission import Permission
 
@@ -51,6 +52,13 @@ async def create_establishment(
             center_lon=body.center_lon,
             radius_strict_m=body.radius_strict_m,
             radius_relaxed_m=body.radius_relaxed_m,
+            minesec_code=body.minesec_code,
+            establishment_type=body.establishment_type,
+            contact_email=body.contact_email,
+            contact_phone=body.contact_phone,
+            territory_code=body.territory_code,
+            parent_establishment_id=body.parent_establishment_id,
+            designated_host_user_id=body.designated_host_user_id,
         )
     )
 
@@ -78,10 +86,22 @@ async def create_establishment(
 - `401` : Header `X-User-Id` absent ou invalide (en V1 dev, retourne un ID par défaut).
 """,
 )
-async def list_establishments(uow: UoW, _user: UserId) -> list[dict[str, object]]:
+async def list_establishments(
+    uow: UoW,
+    _user: UserId,
+    pagination: PageParams = Depends(),
+    territory_code: str | None = Query(default=None),
+) -> Page[dict[str, object]]:
     assert uow.establishments is not None
-    items = await uow.establishments.list_all()
-    return [_establishment_dict(e) for e in items]
+    items, total = await uow.establishments.list_page(
+        pagination.skip, pagination.limit, territory_code=territory_code
+    )
+    return Page(
+        items=[_establishment_dict(e) for e in items],
+        total=total,
+        skip=pagination.skip,
+        limit=pagination.limit,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -177,6 +197,20 @@ async def update_establishment(
         est.radius_strict_m = body.radius_strict_m
     if body.radius_relaxed_m is not None:
         est.radius_relaxed_m = body.radius_relaxed_m
+    if body.minesec_code is not None:
+        est.minesec_code = body.minesec_code
+    if body.establishment_type is not None:
+        est.establishment_type = body.establishment_type
+    if body.contact_email is not None:
+        est.contact_email = body.contact_email
+    if body.contact_phone is not None:
+        est.contact_phone = body.contact_phone
+    if body.territory_code is not None:
+        est.territory_code = body.territory_code
+    if body.parent_establishment_id is not None:
+        est.parent_establishment_id = body.parent_establishment_id
+    if body.designated_host_user_id is not None:
+        est.designated_host_user_id = body.designated_host_user_id
     if geo_changed:
         est.geometry_version += 1
 
@@ -199,4 +233,21 @@ def _establishment_dict(e: object) -> dict[str, object]:
         "radius_strict_m": e.radius_strict_m,
         "radius_relaxed_m": e.radius_relaxed_m,
         "geometry_version": e.geometry_version,
+        "minesec_code": e.minesec_code,
+        "establishment_type": e.establishment_type,
+        "contact_email": e.contact_email,
+        "contact_phone": e.contact_phone,
+        "territory_code": e.territory_code,
+        "parent_establishment_id": str(e.parent_establishment_id)
+        if e.parent_establishment_id
+        else None,
+        "designated_host_user_id": str(e.designated_host_user_id)
+        if e.designated_host_user_id
+        else None,
+        "geometry_validated_at": e.geometry_validated_at.isoformat()
+        if e.geometry_validated_at
+        else None,
+        "geometry_validated_by_user_id": str(e.geometry_validated_by_user_id)
+        if e.geometry_validated_by_user_id
+        else None,
     }

@@ -5,9 +5,9 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import UUID
 
+from application.ports.unit_of_work import UnitOfWork
 from domain.errors import Conflict, Forbidden, NotFound
 from domain.site_visit.transitions import check_out
-from infrastructure.persistence.sqlalchemy.uow import SqlAlchemyUnitOfWork
 
 
 def _aware(dt: datetime) -> datetime:
@@ -23,7 +23,7 @@ class CheckOutCommand:
 
 
 class CheckOutVisit:
-    def __init__(self, uow: SqlAlchemyUnitOfWork) -> None:
+    def __init__(self, uow: UnitOfWork) -> None:
         self._uow = uow
 
     async def execute(self, cmd: CheckOutCommand) -> dict[str, object]:

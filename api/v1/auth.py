@@ -11,9 +11,10 @@ Routes exposées :
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from api.deps import EmailDep, RequirePermissionDep, SettingsDep, UoW, UserId
+from api.rate_limit import enforce_rate_limit
 from api.v1.schemas import (
     ChangePasswordBody,
     LoginBody,
@@ -129,10 +130,16 @@ async def register(
 """,
 )
 async def login(
+    request: Request,
     body: LoginBody,
     uow: UoW,
     settings: SettingsDep,
 ) -> LoginResponse:
+    await enforce_rate_limit(
+        request,
+        key_prefix="login",
+        max_per_minute=settings.login_rate_limit_per_minute,
+    )
     uc = LoginUser(uow, settings)
     try:
         result = await uc.execute(LoginCommand(email=body.email, password=body.password))

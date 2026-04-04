@@ -4,13 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from passlib.context import CryptContext
-
+from application.ports.email_port import EmailPort
+from application.ports.unit_of_work import UnitOfWork
+from common.password_hashing import pwd_context
 from domain.errors import TokenExpiredOrInvalid
-from infrastructure.email.email_service import EmailService
-from infrastructure.persistence.sqlalchemy.uow import SqlAlchemyUnitOfWork
-
-_pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 @dataclass
@@ -29,7 +26,7 @@ class ResetPassword:
     - Notification par e-mail de la modification
     """
 
-    def __init__(self, uow: SqlAlchemyUnitOfWork, email_service: EmailService) -> None:
+    def __init__(self, uow: UnitOfWork, email_service: EmailPort) -> None:
         self._uow = uow
         self._email_service = email_service
 
@@ -40,7 +37,7 @@ class ResetPassword:
                 raise TokenExpiredOrInvalid("Le lien de réinitialisation est invalide ou a expiré.")
 
             user = await self._uow.users.get_by_id(token_record.user_id)
-            user.hashed_password = _pwd_ctx.hash(cmd.new_password)
+            user.hashed_password = pwd_context.hash(cmd.new_password)
             await self._uow.users.update(user)
             await self._uow.reset_tokens.mark_used(cmd.token)
 

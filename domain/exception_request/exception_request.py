@@ -21,3 +21,7 @@ class ExceptionRequest:
     created_at: datetime
     status: ExceptionRequestStatus = ExceptionRequestStatus.NEW
     message: str = ""
+    assigned_to_user_id: UUID | None = None
+    internal_comment: str | None = None
+    sla_due_at: datetime | None = None
+    attachment_url: str | None = None

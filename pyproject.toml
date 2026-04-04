@@ -34,6 +34,7 @@ postgres = [
 ]
 dev = [
     "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
     "httpx>=0.26.0",
     "ruff>=0.2.0",
     "pre-commit>=3.6.0",
@@ -57,3 +58,8 @@ known-first-party = ["api", "application", "common", "domain", "infrastructure"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+
+[tool.coverage.run]
+branch = true
+source = ["api", "application", "common", "domain", "infrastructure"]
+omit = ["*/tests/*", "*/__pycache__/*", "*/alembic/*"]

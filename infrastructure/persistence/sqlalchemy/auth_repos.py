@@ -6,7 +6,7 @@ import hashlib
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -73,9 +73,16 @@ class UserAuthRepositoryImpl:
         return _model_to_user(row) if row else None
 
     async def list_all(self) -> list[User]:
+        rows, _ = await self.list_page(0, 10_000)
+        return rows
+
+    async def list_page(self, offset: int, limit: int) -> tuple[list[User], int]:
+        base = select(UserModel)
+        total = (await self._session.execute(select(func.count()).select_from(base.subquery()))).scalar_one()
         stmt = _with_roles(select(UserModel).order_by(UserModel.created_at.desc()))
+        stmt = stmt.offset(offset).limit(limit)
         rows = (await self._session.execute(stmt)).scalars().all()
-        return [_model_to_user(r) for r in rows]
+        return [_model_to_user(r) for r in rows], int(total)
 
     async def create(self, user: User) -> None:
         model = UserModel(

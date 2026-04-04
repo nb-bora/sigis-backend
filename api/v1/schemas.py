@@ -5,6 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
 
+from domain.exception_request.exception_request import ExceptionRequestStatus
 from domain.identity.role import Role
 from domain.shared.value_objects.host_validation_mode import HostValidationMode
 
@@ -24,6 +25,19 @@ class CreateEstablishmentBody(BaseModel):
     )
     radius_relaxed_m: float = Field(
         ..., gt=0, description="Rayon élargi (m) — distance dans la couronne → statut PROBABLE."
+    )
+    minesec_code: str | None = Field(default=None, max_length=64)
+    establishment_type: str = Field(default="other", max_length=64)
+    contact_email: str | None = Field(default=None, max_length=320)
+    contact_phone: str | None = Field(default=None, max_length=32)
+    territory_code: str | None = Field(
+        default=None,
+        max_length=64,
+        description="Code territoire (région / académie / délégation — référentiel libre V2).",
+    )
+    parent_establishment_id: UUID | None = None
+    designated_host_user_id: UUID | None = Field(
+        default=None, description="Responsable d'accueil désigné pour cet établissement."
     )
 
 
@@ -45,6 +59,13 @@ class UpdateEstablishmentBody(BaseModel):
     radius_relaxed_m: float | None = Field(
         default=None, gt=0, description="Nouveau rayon élargi (m)."
     )
+    minesec_code: str | None = Field(default=None, max_length=64)
+    establishment_type: str | None = Field(default=None, max_length=64)
+    contact_email: str | None = Field(default=None, max_length=320)
+    contact_phone: str | None = Field(default=None, max_length=32)
+    territory_code: str | None = Field(default=None, max_length=64)
+    parent_establishment_id: UUID | None = None
+    designated_host_user_id: UUID | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -64,6 +85,16 @@ class CreateMissionBody(BaseModel):
         max_length=32,
         description="Code SMS pour le mode de validation C (SMS_SHORTCODE). Facultatif.",
     )
+    objective: str | None = Field(default=None, max_length=4000)
+    plan_reference: str | None = Field(default=None, max_length=256)
+    requires_approval: bool = Field(
+        default=False,
+        description="Si true, mission créée en draft — validation via POST .../approve.",
+    )
+    designated_host_user_id: UUID | None = Field(
+        default=None,
+        description="Surcharge du responsable d'accueil pour cette mission.",
+    )
 
 
 class UpdateMissionBody(BaseModel):
@@ -77,11 +108,14 @@ class UpdateMissionBody(BaseModel):
     )
     status: str | None = Field(
         default=None,
-        description="Nouveau statut (planned | in_progress | completed | cancelled).",
+        description="Nouveau statut (draft | planned | in_progress | completed | cancelled).",
     )
     sms_code: str | None = Field(
         default=None, max_length=32, description="Mise à jour du code SMS (mode C)."
     )
+    designated_host_user_id: UUID | None = None
+    objective: str | None = Field(default=None, max_length=4000)
+    plan_reference: str | None = Field(default=None, max_length=256)
 
 
 # ---------------------------------------------------------------------------
@@ -135,6 +169,10 @@ class ConfirmHostBody(BaseModel):
         default=None,
         description="Jeton UUID extrait du QR code de l'établissement. Requis pour le mode qr_static.",
     )
+    qr_jwt: str | None = Field(
+        default=None,
+        description="JWT court retourné par GET /missions/{id}/host-qr-jwt (alternative au UUID).",
+    )
     sms_code: str | None = Field(
         default=None,
         description="Code reçu par SMS. Requis pour le mode sms_shortcode.",
@@ -163,6 +201,30 @@ class ExceptionBody(BaseModel):
         max_length=4000,
         description="Description du problème rencontré (périmètre incorrect, établissement fermé, absent, etc.).",
     )
+
+
+class PatchExceptionBody(BaseModel):
+    """Mise à jour signalement : statut, assignation, commentaire interne, SLA."""
+
+    status: ExceptionRequestStatus | None = None
+    assigned_to_user_id: UUID | None = None
+    internal_comment: str | None = Field(default=None, max_length=8000)
+    sla_due_at: datetime | None = None
+    attachment_url: str | None = Field(default=None, max_length=1024)
+
+
+class CancelMissionBody(BaseModel):
+    reason: str = Field(..., min_length=1, max_length=4000)
+
+
+class SubmitMissionOutcomeBody(BaseModel):
+    summary: str = Field(..., min_length=1, max_length=8000)
+    notes: str | None = Field(default=None, max_length=8000)
+    compliance_level: str | None = Field(default=None, max_length=32)
+
+
+class ReassignMissionBody(BaseModel):
+    new_inspector_id: UUID
 
 
 # ---------------------------------------------------------------------------

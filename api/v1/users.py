@@ -16,6 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from api.deps import RequirePermissionDep, UoW, UserId, UserRoles
 from api.v1.schemas import UpdateUserBody, UserResponse
+from common.pagination import Page, PageParams
 from domain.errors import NotFound
 from domain.identity.permission import Permission as Perm
 from domain.identity.role import Role
@@ -44,7 +45,7 @@ def _user_to_response(u: User) -> UserResponse:
 
 @router.get(
     "",
-    response_model=list[UserResponse],
+    response_model=Page[UserResponse],
     dependencies=[Depends(RequirePermissionDep(Perm.USER_LIST))],
     summary="Lister tous les utilisateurs",
     description="""
@@ -61,9 +62,14 @@ def _user_to_response(u: User) -> UserResponse:
 - `403` — rôle insuffisant
 """,
 )
-async def list_users(uow: UoW) -> list[UserResponse]:
-    users = await uow.users.list_all()
-    return [_user_to_response(u) for u in users]
+async def list_users(uow: UoW, pagination: PageParams = Depends()) -> Page[UserResponse]:
+    users, total = await uow.users.list_page(pagination.skip, pagination.limit)
+    return Page(
+        items=[_user_to_response(u) for u in users],
+        total=total,
+        skip=pagination.skip,
+        limit=pagination.limit,
+    )
 
 
 # ── GET /users/{id} ────────────────────────────────────────────────────────

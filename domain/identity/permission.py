@@ -27,6 +27,10 @@ class Permission(StrEnum):
     MISSION_CREATE = "MISSION_CREATE"
     MISSION_READ = "MISSION_READ"
     MISSION_UPDATE = "MISSION_UPDATE"
+    MISSION_APPROVE = "MISSION_APPROVE"
+    MISSION_CANCEL = "MISSION_CANCEL"
+    MISSION_REASSIGN = "MISSION_REASSIGN"
+    MISSION_OUTCOME_WRITE = "MISSION_OUTCOME_WRITE"
 
     # ── Visites de site ───────────────────────────────────────────────────
     VISIT_CHECKIN = "VISIT_CHECKIN"
@@ -38,6 +42,7 @@ class Permission(StrEnum):
     EXCEPTION_CREATE = "EXCEPTION_CREATE"
     EXCEPTION_READ = "EXCEPTION_READ"
     EXCEPTION_UPDATE_STATUS = "EXCEPTION_UPDATE_STATUS"
+    EXCEPTION_MANAGE = "EXCEPTION_MANAGE"
 
     # ── Utilisateurs ──────────────────────────────────────────────────────
     USER_LIST = "USER_LIST"
@@ -51,3 +56,6 @@ class Permission(StrEnum):
     # ── Rôles & permissions (administration des ACL) ──────────────────────
     ROLE_READ = "ROLE_READ"
     ROLE_MANAGE_PERMISSIONS = "ROLE_MANAGE_PERMISSIONS"
+
+    REPORT_READ = "REPORT_READ"
+    AUDIT_READ = "AUDIT_READ"

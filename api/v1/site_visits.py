@@ -4,7 +4,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Path
 
-from api.deps import RequirePermissionDep, UoW, UserId
+from api.deps import RequirePermissionDep, SettingsDep, UoW, UserId
 from api.v1.schemas import CheckInBody, CheckOutBody, ConfirmHostBody
 from application.use_cases.check_in_inspector import CheckInInspector, CheckInInspectorCommand
 from application.use_cases.check_out_visit import CheckOutCommand, CheckOutVisit
@@ -165,9 +165,10 @@ async def confirm_host(
     site_visit_id: UUID = Path(..., description="UUID de la visite terrain."),
     body: ConfirmHostBody = ...,
     uow: UoW = ...,
+    settings: SettingsDep = ...,
     user: UserId = ...,
 ) -> dict[str, object]:
-    uc = ConfirmHostPresence(uow)
+    uc = ConfirmHostPresence(uow, settings)
     return await uc.execute(
         ConfirmHostCommand(
             site_visit_id=site_visit_id,
@@ -177,6 +178,7 @@ async def confirm_host(
             latitude=body.latitude,
             longitude=body.longitude,
             qr_token=body.qr_token,
+            qr_jwt=body.qr_jwt,
             sms_code=body.sms_code,
         )
     )

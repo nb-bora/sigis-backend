@@ -7,13 +7,11 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 import jwt
-from passlib.context import CryptContext
 
+from application.ports.settings_port import AppSettings
+from application.ports.unit_of_work import UnitOfWork
+from common.password_hashing import pwd_context
 from domain.errors import AccountInactive, InvalidCredentials
-from infrastructure.config.settings import Settings
-from infrastructure.persistence.sqlalchemy.uow import SqlAlchemyUnitOfWork
-
-_pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 @dataclass
@@ -43,7 +41,7 @@ class LoginUser:
     - AccountInactive    — compte désactivé
     """
 
-    def __init__(self, uow: SqlAlchemyUnitOfWork, settings: Settings) -> None:
+    def __init__(self, uow: UnitOfWork, settings: AppSettings) -> None:
         self._uow = uow
         self._settings = settings
 
@@ -51,7 +49,7 @@ class LoginUser:
         async with self._uow:
             user = await self._uow.users.get_by_email(cmd.email)
 
-        if user is None or not _pwd_ctx.verify(cmd.password, user.hashed_password):
+        if user is None or not pwd_context.verify(cmd.password, user.hashed_password):
             raise InvalidCredentials("Identifiants incorrects.")
 
         if not user.is_active:

@@ -4,9 +4,9 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
+from application.ports.unit_of_work import UnitOfWork
 from domain.errors import NotFound
 from domain.exception_request.exception_request import ExceptionRequest, ExceptionRequestStatus
-from infrastructure.persistence.sqlalchemy.uow import SqlAlchemyUnitOfWork
 
 
 @dataclass(frozen=True)
@@ -17,7 +17,7 @@ class CreateExceptionCommand:
 
 
 class CreateExceptionRequest:
-    def __init__(self, uow: SqlAlchemyUnitOfWork) -> None:
+    def __init__(self, uow: UnitOfWork) -> None:
         self._uow = uow
 
     async def execute(self, cmd: CreateExceptionCommand) -> dict[str, object]:

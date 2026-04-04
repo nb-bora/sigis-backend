@@ -1,11 +1,15 @@
 """Routes Signalements — mini-workflow supervision V1."""
 
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Path, Query
+from fastapi import APIRouter, Depends, Path, Query, Request
 from pydantic import BaseModel, Field
 
 from api.deps import RequirePermissionDep, UoW, UserId
+from api.v1.schemas import PatchExceptionBody
+from common.audit import write_audit
+from common.pagination import Page, PageParams
 from domain.errors import NotFound
 from domain.exception_request.exception_request import ExceptionRequest, ExceptionRequestStatus
 from domain.identity.permission import Permission
@@ -33,6 +37,10 @@ def _exc_dict(e: ExceptionRequest) -> dict[str, object]:
         "created_at": e.created_at.isoformat(),
         "status": e.status.value,
         "message": e.message,
+        "assigned_to_user_id": str(e.assigned_to_user_id) if e.assigned_to_user_id else None,
+        "internal_comment": e.internal_comment,
+        "sla_due_at": e.sla_due_at.isoformat() if e.sla_due_at else None,
+        "attachment_url": e.attachment_url,
     }
 
 
@@ -65,14 +73,22 @@ def _exc_dict(e: ExceptionRequest) -> dict[str, object]:
 async def list_exception_requests(
     uow: UoW,
     _user: UserId,
+    pagination: PageParams = Depends(),
     status: str | None = Query(
         default=None,
         description="Filtre par statut : new | acknowledged | resolved | escalated.",
     ),
-) -> list[dict[str, object]]:
+) -> Page[dict[str, object]]:
     assert uow.exception_requests is not None
-    items = await uow.exception_requests.list_all(status=status)
-    return [_exc_dict(e) for e in items]
+    items, total = await uow.exception_requests.list_page(
+        pagination.skip, pagination.limit, status=status
+    )
+    return Page(
+        items=[_exc_dict(e) for e in items],
+        total=total,
+        skip=pagination.skip,
+        limit=pagination.limit,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -161,3 +177,48 @@ async def update_exception_status(
         raise NotFound("Signalement introuvable.")
     await uow.exception_requests.update_status(exception_id, body.status)
     return {"id": str(exception_id), "status": body.status.value}
+
+
+# ---------------------------------------------------------------------------
+# PATCH /exception-requests/{id} — Assignation, SLA, commentaire interne
+# ---------------------------------------------------------------------------
+@router.patch(
+    "/{exception_id}",
+    dependencies=[Depends(RequirePermissionDep(Permission.EXCEPTION_MANAGE))],
+    summary="Mettre à jour un signalement (assignation, SLA, commentaire)",
+)
+async def patch_exception_request(
+    exception_id: UUID = Path(...),
+    body: PatchExceptionBody = ...,
+    uow: UoW = ...,
+    user: UserId = ...,
+    request: Request = ...,
+) -> dict[str, object]:
+    assert uow.exception_requests is not None
+    exc = await uow.exception_requests.get_by_id(exception_id)
+    if exc is None:
+        raise NotFound("Signalement introuvable.")
+    if body.status is not None:
+        exc.status = body.status
+    if body.assigned_to_user_id is not None:
+        exc.assigned_to_user_id = body.assigned_to_user_id
+    if body.internal_comment is not None:
+        exc.internal_comment = body.internal_comment
+    if body.sla_due_at is not None:
+        exc.sla_due_at = body.sla_due_at
+    elif body.status == ExceptionRequestStatus.ACKNOWLEDGED and exc.sla_due_at is None:
+        exc.sla_due_at = datetime.now(UTC) + timedelta(hours=72)
+    if body.attachment_url is not None:
+        exc.attachment_url = body.attachment_url
+    await uow.exception_requests.update(exc)
+    rid = getattr(request.state, "request_id", None)
+    await write_audit(
+        uow,
+        actor_user_id=user,
+        action="exception.patch",
+        resource_type="exception_request",
+        resource_id=exception_id,
+        payload={"status": exc.status.value},
+        request_id=rid,
+    )
+    return _exc_dict(exc)

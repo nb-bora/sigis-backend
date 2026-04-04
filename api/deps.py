@@ -225,12 +225,3 @@ UoW = Annotated[SqlAlchemyUnitOfWork, Depends(get_uow)]
 EmailDep = Annotated[EmailService, Depends(get_email_service)]
 UserId = Annotated[UUID, Depends(CurrentUserDep())]
 UserRoles = Annotated[set[Role], Depends(CurrentUserRolesDep())]
-
-
-def parse_user_id(
-    x_user_id: Annotated[str | None, Header(alias="X-User-Id")] = None,
-) -> UUID:
-    """Alias rétrocompatible pour les anciens tests."""
-    if x_user_id:
-        return UUID(x_user_id)
-    return UUID("00000000-0000-0000-0000-000000000001")

@@ -96,6 +96,23 @@ class EstablishmentModel(Base):
     radius_strict_m: Mapped[float] = mapped_column()
     radius_relaxed_m: Mapped[float] = mapped_column()
     geometry_version: Mapped[int] = mapped_column(default=1)
+    minesec_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    establishment_type: Mapped[str] = mapped_column(String(64), default="other")
+    contact_email: Mapped[str | None] = mapped_column(String(320), nullable=True)
+    contact_phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    territory_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    parent_establishment_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("establishments.id"), nullable=True
+    )
+    designated_host_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
+    geometry_validated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    geometry_validated_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
 
 
 class MissionModel(Base):
@@ -111,6 +128,20 @@ class MissionModel(Base):
     status: Mapped[str] = mapped_column(String(32), default="planned")
     host_token: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True))
     sms_code: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    designated_host_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
+    objective: Mapped[str | None] = mapped_column(Text, nullable=True)
+    plan_reference: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    requires_approval: Mapped[bool] = mapped_column(default=False)
+    cancellation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    cancelled_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
+    previous_mission_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("missions.id"), nullable=True
+    )
 
     site_visit: Mapped["SiteVisitModel | None"] = relationship(
         "SiteVisitModel",
@@ -172,6 +203,41 @@ class ExceptionRequestModel(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     status: Mapped[str] = mapped_column(String(32))
     message: Mapped[str] = mapped_column(Text)
+    assigned_to_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
+    internal_comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    sla_due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    attachment_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+
+
+class MissionOutcomeModel(Base):
+    __tablename__ = "mission_outcomes"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    mission_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("missions.id"), unique=True)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    compliance_level: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_by_user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
+
+
+class AuditLogModel(Base):
+    __tablename__ = "audit_logs"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    actor_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
+    action: Mapped[str] = mapped_column(String(128), nullable=False)
+    resource_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    resource_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    payload_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    request_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
 
 class IdempotencyRecordModel(Base):

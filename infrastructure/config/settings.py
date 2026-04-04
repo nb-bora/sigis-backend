@@ -35,6 +35,11 @@ class Settings(BaseSettings):
     # URL du frontend pour les liens dans les e-mails
     frontend_url: str = "http://localhost:3000"
 
+    # QR hôte : JWT court (minutes) ; 0 = désactivé côté émission (fallback UUID)
+    host_qr_jwt_ttl_minutes: int = 15
+    # Connexion : max tentatives par minute et par IP (0 = pas de limite)
+    login_rate_limit_per_minute: int = 30
+
     @property
     def is_dev(self) -> bool:
         return self.env == "development"

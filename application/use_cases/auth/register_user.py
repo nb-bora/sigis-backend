@@ -6,16 +6,13 @@ import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from passlib.context import CryptContext
-
+from application.ports.email_port import EmailPort
+from application.ports.unit_of_work import UnitOfWork
+from common.password_hashing import pwd_context
 from domain.errors import EmailAlreadyExists, PhoneAlreadyExists
 from domain.identity.role import Role
 from domain.identity.user import User
 from domain.identity.value_objects.phone_number import CameroonPhoneNumber
-from infrastructure.email.email_service import EmailService
-from infrastructure.persistence.sqlalchemy.uow import SqlAlchemyUnitOfWork
-
-_pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 @dataclass
@@ -45,8 +42,8 @@ class RegisterUser:
 
     def __init__(
         self,
-        uow: SqlAlchemyUnitOfWork,
-        email_service: EmailService,
+        uow: UnitOfWork,
+        email_service: EmailPort,
     ) -> None:
         self._uow = uow
         self._email_service = email_service
@@ -73,7 +70,7 @@ class RegisterUser:
                 email=cmd.email.lower(),
                 full_name=cmd.full_name,
                 phone_number=phone_vo.e164,
-                hashed_password=_pwd_ctx.hash(cmd.password),
+                hashed_password=pwd_context.hash(cmd.password),
                 roles=cmd.roles,
                 is_active=True,
                 created_at=now,

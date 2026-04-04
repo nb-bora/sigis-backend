@@ -6,9 +6,9 @@ import secrets
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from infrastructure.config.settings import Settings
-from infrastructure.email.email_service import EmailService
-from infrastructure.persistence.sqlalchemy.uow import SqlAlchemyUnitOfWork
+from application.ports.email_port import EmailPort
+from application.ports.settings_port import AppSettings
+from application.ports.unit_of_work import UnitOfWork
 
 
 @dataclass
@@ -27,9 +27,9 @@ class RequestPasswordReset:
 
     def __init__(
         self,
-        uow: SqlAlchemyUnitOfWork,
-        email_service: EmailService,
-        settings: Settings,
+        uow: UnitOfWork,
+        email_service: EmailPort,
+        settings: AppSettings,
     ) -> None:
         self._uow = uow
         self._email_service = email_service

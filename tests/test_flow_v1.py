@@ -18,6 +18,24 @@ def _run_flow(client: TestClient) -> None:
     host = uuid4()
     admin = uuid4()
 
+    # Enregistre l'inspecteur (nécessaire depuis que CreateMission vérifie l'existence)
+    insp_hex = insp.hex
+    # Mobile valide PNN (69x…) — 7 chiffres pseudo-aléatoires pour unicité
+    phone_national = f"69{str(int(insp_hex[:8], 16) % 10**7).zfill(7)}"
+    r_reg = client.post(
+        "/v1/auth/register",
+        json={
+            "email": f"insp_{insp_hex[:8]}@test.cm",
+            "full_name": "Inspecteur Test",
+            "phone_number": phone_national,
+            "password": "pass1234",
+            "roles": ["INSPECTOR"],
+        },
+        headers={"X-User-Id": str(admin)},
+    )
+    assert r_reg.status_code == 201, r_reg.text
+    insp = r_reg.json()["user_id"]
+
     r0 = client.post(
         "/v1/establishments",
         json={
