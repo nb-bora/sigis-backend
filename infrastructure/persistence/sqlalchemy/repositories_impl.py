@@ -1,3 +1,4 @@
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -31,18 +32,58 @@ class EstablishmentRepositoryImpl:
         result = await self._session.execute(select(EstablishmentModel))
         return [establishment_to_domain(r) for r in result.scalars().all()]
 
+    def _establishment_select_filtered(
+        self,
+        *,
+        territory_code: str | None,
+        name_q: str | None,
+        establishment_type: str | None,
+    ):
+        q = select(EstablishmentModel)
+        if territory_code is not None:
+            q = q.where(EstablishmentModel.territory_code == territory_code)
+        if name_q:
+            q = q.where(EstablishmentModel.name.ilike(f"%{name_q}%"))
+        if establishment_type is not None:
+            q = q.where(EstablishmentModel.establishment_type == establishment_type)
+        return q
+
+    async def count_by_establishment_type(
+        self,
+        *,
+        territory_code: str | None = None,
+        name_q: str | None = None,
+    ) -> dict[str, int]:
+        q = select(EstablishmentModel.establishment_type, func.count()).select_from(EstablishmentModel)
+        if territory_code is not None:
+            q = q.where(EstablishmentModel.territory_code == territory_code)
+        if name_q:
+            q = q.where(EstablishmentModel.name.ilike(f"%{name_q}%"))
+        q = q.group_by(EstablishmentModel.establishment_type)
+        result = await self._session.execute(q)
+        return {str(row[0]): int(row[1]) for row in result.all()}
+
     async def list_page(
         self,
         offset: int,
         limit: int,
         *,
         territory_code: str | None = None,
+        name_q: str | None = None,
+        establishment_type: str | None = None,
     ) -> tuple[list[Establishment], int]:
-        q = select(EstablishmentModel)
-        if territory_code is not None:
-            q = q.where(EstablishmentModel.territory_code == territory_code)
+        q = self._establishment_select_filtered(
+            territory_code=territory_code,
+            name_q=name_q,
+            establishment_type=establishment_type,
+        )
         count_stmt = select(func.count()).select_from(q.subquery())
         total = (await self._session.execute(count_stmt)).scalar_one()
+        q = self._establishment_select_filtered(
+            territory_code=territory_code,
+            name_q=name_q,
+            establishment_type=establishment_type,
+        )
         q = q.order_by(EstablishmentModel.name).offset(offset).limit(limit)
         result = await self._session.execute(q)
         rows = [establishment_to_domain(r) for r in result.scalars().all()]
@@ -105,6 +146,8 @@ class MissionRepositoryImpl:
         establishment_id: UUID | None = None,
         status: str | None = None,
         territory_code: str | None = None,
+        window_from: datetime | None = None,
+        window_to: datetime | None = None,
     ) -> list[Mission]:
         rows, _ = await self.list_page(
             0,
@@ -113,6 +156,8 @@ class MissionRepositoryImpl:
             establishment_id=establishment_id,
             status=status,
             territory_code=territory_code,
+            window_from=window_from,
+            window_to=window_to,
         )
         return rows
 
@@ -123,6 +168,8 @@ class MissionRepositoryImpl:
         establishment_id: UUID | None,
         status: str | None,
         territory_code: str | None,
+        window_from: datetime | None = None,
+        window_to: datetime | None = None,
     ):
         q = select(MissionModel)
         if territory_code is not None:
@@ -134,7 +181,36 @@ class MissionRepositoryImpl:
             q = q.where(MissionModel.establishment_id == establishment_id)
         if status is not None:
             q = q.where(MissionModel.status == status)
+        if window_from is not None:
+            q = q.where(MissionModel.window_end >= window_from)
+        if window_to is not None:
+            q = q.where(MissionModel.window_start <= window_to)
         return q
+
+    async def count_by_status(
+        self,
+        *,
+        inspector_id: UUID | None = None,
+        establishment_id: UUID | None = None,
+        territory_code: str | None = None,
+        window_from: datetime | None = None,
+        window_to: datetime | None = None,
+    ) -> dict[str, int]:
+        q = select(MissionModel.status, func.count()).select_from(MissionModel)
+        if territory_code is not None:
+            q = q.join(EstablishmentModel, MissionModel.establishment_id == EstablishmentModel.id)
+            q = q.where(EstablishmentModel.territory_code == territory_code)
+        if inspector_id is not None:
+            q = q.where(MissionModel.inspector_id == inspector_id)
+        if establishment_id is not None:
+            q = q.where(MissionModel.establishment_id == establishment_id)
+        if window_from is not None:
+            q = q.where(MissionModel.window_end >= window_from)
+        if window_to is not None:
+            q = q.where(MissionModel.window_start <= window_to)
+        q = q.group_by(MissionModel.status)
+        result = await self._session.execute(q)
+        return {str(row[0]): int(row[1]) for row in result.all()}
 
     async def list_page(
         self,
@@ -145,12 +221,16 @@ class MissionRepositoryImpl:
         establishment_id: UUID | None = None,
         status: str | None = None,
         territory_code: str | None = None,
+        window_from: datetime | None = None,
+        window_to: datetime | None = None,
     ) -> tuple[list[Mission], int]:
         q = self._mission_select_filtered(
             inspector_id=inspector_id,
             establishment_id=establishment_id,
             status=status,
             territory_code=territory_code,
+            window_from=window_from,
+            window_to=window_to,
         )
         count_stmt = select(func.count()).select_from(q.subquery())
         total = (await self._session.execute(count_stmt)).scalar_one()
@@ -159,6 +239,8 @@ class MissionRepositoryImpl:
             establishment_id=establishment_id,
             status=status,
             territory_code=territory_code,
+            window_from=window_from,
+            window_to=window_to,
         )
         q = q.order_by(MissionModel.window_start.desc()).offset(offset).limit(limit)
         result = await self._session.execute(q)

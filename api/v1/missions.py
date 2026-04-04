@@ -1,5 +1,6 @@
 """Routes Missions — planification et suivi V1."""
 
+from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Path, Query, Request
@@ -103,6 +104,8 @@ async def create_mission(body: CreateMissionBody, uow: UoW, _user: UserId) -> di
 - `inspector_id` : Filtre les missions d'un inspecteur spécifique.
 - `establishment_id` : Filtre les missions d'un établissement spécifique.
 - `status` : Filtre par statut parmi `planned`, `in_progress`, `completed`, `cancelled`.
+- `window_from` / `window_to` : Plage temporelle — missions dont la fenêtre **intersecte** l'intervalle
+  (`window_end >= window_from` et `window_start <= window_to`).
 
 **Workflow nominal :**
 1. Le serveur applique les filtres fournis (aucun filtre = toutes les missions).
@@ -131,6 +134,14 @@ async def list_missions(
     territory_code: str | None = Query(
         default=None, description="Filtre par code territoire de l'établissement."
     ),
+    window_from: datetime | None = Query(
+        default=None,
+        description="Début de plage : garde les missions avec window_end >= cette date.",
+    ),
+    window_to: datetime | None = Query(
+        default=None,
+        description="Fin de plage : garde les missions avec window_start <= cette date.",
+    ),
 ) -> Page[dict[str, object]]:
     assert uow.missions is not None
     items, total = await uow.missions.list_page(
@@ -140,6 +151,8 @@ async def list_missions(
         establishment_id=establishment_id,
         status=status,
         territory_code=territory_code,
+        window_from=window_from,
+        window_to=window_to,
     )
     return Page(
         items=[_mission_dict(m) for m in items],
@@ -147,6 +160,39 @@ async def list_missions(
         skip=pagination.skip,
         limit=pagination.limit,
     )
+
+
+# ---------------------------------------------------------------------------
+# GET /missions/summary — Synthèse (compteurs par statut, sans filtre statut)
+# ---------------------------------------------------------------------------
+@router.get(
+    "/summary",
+    dependencies=[Depends(RequirePermissionDep(Permission.MISSION_READ))],
+    summary="Synthèse missions (total et répartition par statut)",
+    description="""
+Même périmètre de filtrage que `GET /missions` (inspecteur, établissement, territoire, plage de dates),
+sans le filtre `status` : retourne le total et la répartition par statut pour les missions concernées.
+""",
+)
+async def missions_summary(
+    uow: UoW,
+    _user: UserId,
+    inspector_id: UUID | None = Query(default=None),
+    establishment_id: UUID | None = Query(default=None),
+    territory_code: str | None = Query(default=None),
+    window_from: datetime | None = Query(default=None),
+    window_to: datetime | None = Query(default=None),
+) -> dict[str, object]:
+    assert uow.missions is not None
+    by_status = await uow.missions.count_by_status(
+        inspector_id=inspector_id,
+        establishment_id=establishment_id,
+        territory_code=territory_code,
+        window_from=window_from,
+        window_to=window_to,
+    )
+    total = sum(by_status.values())
+    return {"total": total, "missions_by_status": by_status}
 
 
 # ---------------------------------------------------------------------------

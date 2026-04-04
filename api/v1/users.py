@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from api.deps import RequirePermissionDep, UoW, UserId, UserRole
 from api.v1.schemas import UpdateUserBody, UpdateUserRoleBody, UserResponse
@@ -62,8 +62,23 @@ def _user_to_response(u: User) -> UserResponse:
 - `403` — rôle insuffisant
 """,
 )
-async def list_users(uow: UoW, pagination: PageParams = Depends()) -> Page[UserResponse]:
-    users, total = await uow.users.list_page(pagination.skip, pagination.limit)
+async def list_users(
+    uow: UoW,
+    pagination: PageParams = Depends(),
+    q: str | None = Query(
+        None,
+        description="Recherche insensible à la casse sur le nom, l’e-mail ou le téléphone.",
+    ),
+    role: Role | None = Query(None, description="Filtrer par rôle SIGIS."),
+    is_active: bool | None = Query(None, description="Filtrer par statut du compte (actif / inactif)."),
+) -> Page[UserResponse]:
+    users, total = await uow.users.list_page(
+        pagination.skip,
+        pagination.limit,
+        q=q,
+        role=role,
+        is_active=is_active,
+    )
     return Page(
         items=[_user_to_response(u) for u in users],
         total=total,

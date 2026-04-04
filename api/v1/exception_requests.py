@@ -78,10 +78,34 @@ async def list_exception_requests(
         default=None,
         description="Filtre par statut : new | acknowledged | resolved | escalated.",
     ),
+    mission_id: UUID | None = Query(default=None, description="Signalements liés à cette mission."),
+    author_user_id: UUID | None = Query(default=None, description="Auteur du signalement."),
+    assigned_to_user_id: UUID | None = Query(
+        default=None, description="Assigné à cet utilisateur (ignoré si unassigned_only)."
+    ),
+    unassigned_only: bool = Query(
+        default=False, description="Si vrai, uniquement les signalements sans assignation."
+    ),
+    created_from: datetime | None = Query(
+        default=None, description="Créés à partir de cette date (inclus)."
+    ),
+    created_to: datetime | None = Query(default=None, description="Créés jusqu'à cette date (inclus)."),
+    message_q: str | None = Query(
+        default=None, description="Recherche insensible à la casse dans le texte du message."
+    ),
 ) -> Page[dict[str, object]]:
     assert uow.exception_requests is not None
     items, total = await uow.exception_requests.list_page(
-        pagination.skip, pagination.limit, status=status
+        pagination.skip,
+        pagination.limit,
+        status=status,
+        mission_id=mission_id,
+        author_user_id=author_user_id,
+        assigned_to_user_id=assigned_to_user_id,
+        unassigned_only=unassigned_only,
+        created_from=created_from,
+        created_to=created_to,
+        message_q=message_q,
     )
     return Page(
         items=[_exc_dict(e) for e in items],
@@ -89,6 +113,43 @@ async def list_exception_requests(
         skip=pagination.skip,
         limit=pagination.limit,
     )
+
+
+# ---------------------------------------------------------------------------
+# GET /exception-requests/summary — Synthèse (répartition par statut)
+# ---------------------------------------------------------------------------
+@router.get(
+    "/summary",
+    dependencies=[Depends(RequirePermissionDep(Permission.EXCEPTION_READ))],
+    summary="Synthèse signalements (total et statuts)",
+    description="""
+Même périmètre que la liste sur mission, auteur, assignation, plage de dates et recherche message,
+sans le filtre `status` : total et répartition par statut.
+""",
+)
+async def exception_requests_summary(
+    uow: UoW,
+    _user: UserId,
+    mission_id: UUID | None = Query(default=None),
+    author_user_id: UUID | None = Query(default=None),
+    assigned_to_user_id: UUID | None = Query(default=None),
+    unassigned_only: bool = Query(default=False),
+    created_from: datetime | None = Query(default=None),
+    created_to: datetime | None = Query(default=None),
+    message_q: str | None = Query(default=None),
+) -> dict[str, object]:
+    assert uow.exception_requests is not None
+    by_status = await uow.exception_requests.count_by_status(
+        mission_id=mission_id,
+        author_user_id=author_user_id,
+        assigned_to_user_id=assigned_to_user_id,
+        unassigned_only=unassigned_only,
+        created_from=created_from,
+        created_to=created_to,
+        message_q=message_q,
+    )
+    total = sum(by_status.values())
+    return {"total": total, "by_status": by_status}
 
 
 # ---------------------------------------------------------------------------

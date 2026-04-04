@@ -10,7 +10,6 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 
 from api.deps import RequirePermissionDep, UoW, UserId
-from common.pagination import PageParams
 from domain.identity.permission import Permission
 
 router = APIRouter(prefix="/reports", tags=["Pilotage"])
@@ -50,10 +49,9 @@ async def reports_summary(uow: UoW, _user: UserId) -> dict[str, object]:
 async def export_missions_csv(
     uow: UoW,
     _user: UserId,
-    pagination: PageParams = Depends(),
 ) -> StreamingResponse:
     assert uow.missions is not None
-    rows, _ = await uow.missions.list_page(pagination.skip, pagination.limit)
+    rows = await uow.missions.list_all()
     buf = io.StringIO()
     w = csv.writer(buf)
     w.writerow(

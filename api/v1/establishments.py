@@ -90,11 +90,22 @@ async def list_establishments(
     uow: UoW,
     _user: UserId,
     pagination: PageParams = Depends(),
-    territory_code: str | None = Query(default=None),
+    territory_code: str | None = Query(default=None, description="Filtre exact sur le code territoire."),
+    name_q: str | None = Query(
+        default=None,
+        description="Recherche insensible à la casse sur le nom officiel (contient).",
+    ),
+    establishment_type: str | None = Query(
+        default=None, description="Filtre exact sur le type d'établissement."
+    ),
 ) -> Page[dict[str, object]]:
     assert uow.establishments is not None
     items, total = await uow.establishments.list_page(
-        pagination.skip, pagination.limit, territory_code=territory_code
+        pagination.skip,
+        pagination.limit,
+        territory_code=territory_code,
+        name_q=name_q,
+        establishment_type=establishment_type,
     )
     return Page(
         items=[_establishment_dict(e) for e in items],
@@ -102,6 +113,33 @@ async def list_establishments(
         skip=pagination.skip,
         limit=pagination.limit,
     )
+
+
+# ---------------------------------------------------------------------------
+# GET /establishments/summary — Synthèse (répartition par type)
+# ---------------------------------------------------------------------------
+@router.get(
+    "/summary",
+    dependencies=[Depends(RequirePermissionDep(Permission.ESTABLISHMENT_READ))],
+    summary="Synthèse établissements (total et types)",
+    description="""
+Même périmètre que la liste sur `territory_code` et `name_q` (sans filtre `establishment_type`) :
+total et nombre d'établissements par valeur de `establishment_type`.
+""",
+)
+async def establishments_summary(
+    uow: UoW,
+    _user: UserId,
+    territory_code: str | None = Query(default=None),
+    name_q: str | None = Query(default=None),
+) -> dict[str, object]:
+    assert uow.establishments is not None
+    by_type = await uow.establishments.count_by_establishment_type(
+        territory_code=territory_code,
+        name_q=name_q,
+    )
+    total = sum(by_type.values())
+    return {"total": total, "by_establishment_type": by_type}
 
 
 # ---------------------------------------------------------------------------

@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain.audit.audit_log_entry import AuditLogEntry
@@ -101,22 +101,104 @@ class ExceptionRequestRepositoryImpl:
         rows, _ = await self.list_page(0, 10_000, status=status)
         return rows
 
+    def _exception_select_filtered(
+        self,
+        *,
+        status: str | None,
+        mission_id: UUID | None,
+        author_user_id: UUID | None,
+        assigned_to_user_id: UUID | None,
+        unassigned_only: bool,
+        created_from: datetime | None,
+        created_to: datetime | None,
+        message_q: str | None,
+    ):
+        q = select(ExceptionRequestModel)
+        if status is not None:
+            q = q.where(ExceptionRequestModel.status == status)
+        if mission_id is not None:
+            q = q.where(ExceptionRequestModel.mission_id == mission_id)
+        if author_user_id is not None:
+            q = q.where(ExceptionRequestModel.author_user_id == author_user_id)
+        if unassigned_only:
+            q = q.where(ExceptionRequestModel.assigned_to_user_id.is_(None))
+        elif assigned_to_user_id is not None:
+            q = q.where(ExceptionRequestModel.assigned_to_user_id == assigned_to_user_id)
+        if created_from is not None:
+            q = q.where(ExceptionRequestModel.created_at >= created_from)
+        if created_to is not None:
+            q = q.where(ExceptionRequestModel.created_at <= created_to)
+        if message_q:
+            q = q.where(ExceptionRequestModel.message.ilike(f"%{message_q}%"))
+        return q
+
+    async def count_by_status(
+        self,
+        *,
+        mission_id: UUID | None = None,
+        author_user_id: UUID | None = None,
+        assigned_to_user_id: UUID | None = None,
+        unassigned_only: bool = False,
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+        message_q: str | None = None,
+    ) -> dict[str, int]:
+        q = select(ExceptionRequestModel.status, func.count()).select_from(ExceptionRequestModel)
+        if mission_id is not None:
+            q = q.where(ExceptionRequestModel.mission_id == mission_id)
+        if author_user_id is not None:
+            q = q.where(ExceptionRequestModel.author_user_id == author_user_id)
+        if unassigned_only:
+            q = q.where(ExceptionRequestModel.assigned_to_user_id.is_(None))
+        elif assigned_to_user_id is not None:
+            q = q.where(ExceptionRequestModel.assigned_to_user_id == assigned_to_user_id)
+        if created_from is not None:
+            q = q.where(ExceptionRequestModel.created_at >= created_from)
+        if created_to is not None:
+            q = q.where(ExceptionRequestModel.created_at <= created_to)
+        if message_q:
+            q = q.where(ExceptionRequestModel.message.ilike(f"%{message_q}%"))
+        q = q.group_by(ExceptionRequestModel.status)
+        result = await self._session.execute(q)
+        return {str(row[0]): int(row[1]) for row in result.all()}
+
     async def list_page(
         self,
         offset: int,
         limit: int,
         *,
         status: str | None = None,
+        mission_id: UUID | None = None,
+        author_user_id: UUID | None = None,
+        assigned_to_user_id: UUID | None = None,
+        unassigned_only: bool = False,
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+        message_q: str | None = None,
     ) -> tuple[list[ExceptionRequest], int]:
-        q = select(ExceptionRequestModel)
-        if status is not None:
-            q = q.where(ExceptionRequestModel.status == status)
+        q = self._exception_select_filtered(
+            status=status,
+            mission_id=mission_id,
+            author_user_id=author_user_id,
+            assigned_to_user_id=assigned_to_user_id,
+            unassigned_only=unassigned_only,
+            created_from=created_from,
+            created_to=created_to,
+            message_q=message_q,
+        )
         total = (
             await self._session.execute(select(func.count()).select_from(q.subquery()))
         ).scalar_one()
-        q = select(ExceptionRequestModel)
-        if status is not None:
-            q = q.where(ExceptionRequestModel.status == status)
+        q = self._exception_select_filtered(
+            status=status,
+            mission_id=mission_id,
+            author_user_id=author_user_id,
+            assigned_to_user_id=assigned_to_user_id,
+            unassigned_only=unassigned_only,
+            created_from=created_from,
+            created_to=created_to,
+            message_q=message_q,
+        )
         q = q.order_by(ExceptionRequestModel.created_at.desc()).offset(offset).limit(limit)
         result = await self._session.execute(q)
         rows = [exception_request_to_domain(r) for r in result.scalars().all()]
@@ -207,17 +289,63 @@ class AuditLogRepositoryImpl:
             )
         )
 
-    async def list_page(self, offset: int, limit: int) -> tuple[list[AuditLogEntry], int]:
-        q = select(AuditLogModel)
-        total = (
-            await self._session.execute(select(func.count()).select_from(q.subquery()))
-        ).scalar_one()
-        q = (
-            select(AuditLogModel)
-            .order_by(AuditLogModel.created_at.desc())
-            .offset(offset)
-            .limit(limit)
+    def _audit_filter_stmt(
+        self,
+        q: str | None,
+        action: str | None,
+        resource_type: str | None,
+        actor_user_id: UUID | None,
+        created_from: datetime | None,
+        created_to: datetime | None,
+    ):
+        conditions: list = []
+        if q and q.strip():
+            term = f"%{q.strip()}%"
+            conditions.append(
+                or_(
+                    AuditLogModel.action.ilike(term),
+                    AuditLogModel.resource_type.ilike(term),
+                    AuditLogModel.resource_id.ilike(term),
+                    AuditLogModel.request_id.ilike(term),
+                    AuditLogModel.payload_json.ilike(term),
+                )
+            )
+        if action and action.strip():
+            conditions.append(AuditLogModel.action == action.strip())
+        if resource_type and resource_type.strip():
+            conditions.append(AuditLogModel.resource_type == resource_type.strip())
+        if actor_user_id is not None:
+            conditions.append(AuditLogModel.actor_user_id == actor_user_id)
+        if created_from is not None:
+            conditions.append(AuditLogModel.created_at >= created_from)
+        if created_to is not None:
+            conditions.append(AuditLogModel.created_at <= created_to)
+        stmt = select(AuditLogModel)
+        if conditions:
+            stmt = stmt.where(and_(*conditions))
+        return stmt
+
+    async def list_page(
+        self,
+        offset: int,
+        limit: int,
+        *,
+        q: str | None = None,
+        action: str | None = None,
+        resource_type: str | None = None,
+        actor_user_id: UUID | None = None,
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+    ) -> tuple[list[AuditLogEntry], int]:
+        filtered = self._audit_filter_stmt(
+            q, action, resource_type, actor_user_id, created_from, created_to
         )
-        result = await self._session.execute(q)
+        count_stmt = select(func.count()).select_from(filtered.subquery())
+        total = (await self._session.execute(count_stmt)).scalar_one()
+        stmt = self._audit_filter_stmt(
+            q, action, resource_type, actor_user_id, created_from, created_to
+        )
+        stmt = stmt.order_by(AuditLogModel.created_at.desc()).offset(offset).limit(limit)
+        result = await self._session.execute(stmt)
         rows = [audit_log_to_domain(r) for r in result.scalars().all()]
         return rows, int(total)

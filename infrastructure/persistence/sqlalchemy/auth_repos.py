@@ -6,7 +6,7 @@ import hashlib
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain.errors import NotFound
@@ -66,13 +66,45 @@ class UserAuthRepositoryImpl:
         rows, _ = await self.list_page(0, 10_000)
         return rows
 
-    async def list_page(self, offset: int, limit: int) -> tuple[list[User], int]:
-        base = select(UserModel)
-        total = (
-            await self._session.execute(select(func.count()).select_from(base.subquery()))
-        ).scalar_one()
-        stmt = select(UserModel).order_by(UserModel.created_at.desc())
-        stmt = stmt.offset(offset).limit(limit)
+    def _users_select_filtered(
+        self,
+        q: str | None,
+        role: Role | None,
+        is_active: bool | None,
+    ):
+        conditions: list = []
+        if q and q.strip():
+            term = f"%{q.strip()}%"
+            conditions.append(
+                or_(
+                    UserModel.email.ilike(term),
+                    UserModel.full_name.ilike(term),
+                    UserModel.phone_number.ilike(term),
+                )
+            )
+        if role is not None:
+            conditions.append(UserModel.role == role.value)
+        if is_active is not None:
+            conditions.append(UserModel.is_active == is_active)
+        stmt = select(UserModel)
+        if conditions:
+            stmt = stmt.where(and_(*conditions))
+        return stmt
+
+    async def list_page(
+        self,
+        offset: int,
+        limit: int,
+        *,
+        q: str | None = None,
+        role: Role | None = None,
+        is_active: bool | None = None,
+    ) -> tuple[list[User], int]:
+        filtered = self._users_select_filtered(q, role, is_active)
+        count_stmt = select(func.count()).select_from(filtered.subquery())
+        total = (await self._session.execute(count_stmt)).scalar_one()
+        stmt = self._users_select_filtered(q, role, is_active)
+        stmt = stmt.order_by(UserModel.created_at.desc()).offset(offset).limit(limit)
         rows = (await self._session.execute(stmt)).scalars().all()
         return [_model_to_user(r) for r in rows], int(total)
 

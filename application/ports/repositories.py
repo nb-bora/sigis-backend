@@ -9,6 +9,7 @@ from uuid import UUID
 from domain.audit.audit_log_entry import AuditLogEntry
 from domain.establishment.establishment import Establishment
 from domain.exception_request.exception_request import ExceptionRequest, ExceptionRequestStatus
+from domain.identity.role import Role
 from domain.identity.user import User
 from domain.mission.mission import Mission
 from domain.mission.mission_outcome import MissionOutcome
@@ -31,7 +32,16 @@ class EstablishmentRepository(Protocol):
         limit: int,
         *,
         territory_code: str | None = None,
+        name_q: str | None = None,
+        establishment_type: str | None = None,
     ) -> tuple[list[Establishment], int]: ...
+
+    async def count_by_establishment_type(
+        self,
+        *,
+        territory_code: str | None = None,
+        name_q: str | None = None,
+    ) -> dict[str, int]: ...
 
 
 class MissionRepository(Protocol):
@@ -47,6 +57,8 @@ class MissionRepository(Protocol):
         establishment_id: UUID | None = None,
         status: str | None = None,
         territory_code: str | None = None,
+        window_from: datetime | None = None,
+        window_to: datetime | None = None,
     ) -> list[Mission]: ...
 
     async def list_page(
@@ -58,7 +70,19 @@ class MissionRepository(Protocol):
         establishment_id: UUID | None = None,
         status: str | None = None,
         territory_code: str | None = None,
+        window_from: datetime | None = None,
+        window_to: datetime | None = None,
     ) -> tuple[list[Mission], int]: ...
+
+    async def count_by_status(
+        self,
+        *,
+        inspector_id: UUID | None = None,
+        establishment_id: UUID | None = None,
+        territory_code: str | None = None,
+        window_from: datetime | None = None,
+        window_to: datetime | None = None,
+    ) -> dict[str, int]: ...
 
 
 class SiteVisitRepository(Protocol):
@@ -94,7 +118,26 @@ class ExceptionRequestRepository(Protocol):
         limit: int,
         *,
         status: str | None = None,
+        mission_id: UUID | None = None,
+        author_user_id: UUID | None = None,
+        assigned_to_user_id: UUID | None = None,
+        unassigned_only: bool = False,
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+        message_q: str | None = None,
     ) -> tuple[list[ExceptionRequest], int]: ...
+
+    async def count_by_status(
+        self,
+        *,
+        mission_id: UUID | None = None,
+        author_user_id: UUID | None = None,
+        assigned_to_user_id: UUID | None = None,
+        unassigned_only: bool = False,
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+        message_q: str | None = None,
+    ) -> dict[str, int]: ...
 
     async def update_status(
         self, exception_id: UUID, new_status: ExceptionRequestStatus
@@ -110,7 +153,15 @@ class UserRepository(Protocol):
 
     async def list_all(self) -> list[User]: ...
 
-    async def list_page(self, offset: int, limit: int) -> tuple[list[User], int]: ...
+    async def list_page(
+        self,
+        offset: int,
+        limit: int,
+        *,
+        q: str | None = None,
+        role: Role | None = None,
+        is_active: bool | None = None,
+    ) -> tuple[list[User], int]: ...
 
     async def create(self, user: User) -> None: ...
 
@@ -156,4 +207,15 @@ class AuditLogRepository(Protocol):
         request_id: str | None,
     ) -> None: ...
 
-    async def list_page(self, offset: int, limit: int) -> tuple[list[AuditLogEntry], int]: ...
+    async def list_page(
+        self,
+        offset: int,
+        limit: int,
+        *,
+        q: str | None = None,
+        action: str | None = None,
+        resource_type: str | None = None,
+        actor_user_id: UUID | None = None,
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+    ) -> tuple[list[AuditLogEntry], int]: ...
