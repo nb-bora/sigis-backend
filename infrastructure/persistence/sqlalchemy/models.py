@@ -19,13 +19,11 @@ class UserModel(Base):
     # Numéro en format E.164 : +237XXXXXXXXX (conforme PNN ART 2014)
     phone_number: Mapped[str] = mapped_column(String(20), nullable=False, default="")
     hashed_password: Mapped[str] = mapped_column(String(128), nullable=False, default="")
+    role: Mapped[str] = mapped_column(String(64), nullable=False, default="INSPECTOR")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
     updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    roles: Mapped[list["UserRoleModel"]] = relationship(
-        "UserRoleModel", back_populates="user", cascade="all, delete-orphan"
-    )
     reset_tokens: Mapped[list["PasswordResetTokenModel"]] = relationship(
         "PasswordResetTokenModel", back_populates="user", cascade="all, delete-orphan"
     )
@@ -34,20 +32,6 @@ class UserModel(Base):
         UniqueConstraint("email", name="uq_users_email"),
         UniqueConstraint("phone_number", name="uq_users_phone_number"),
     )
-
-
-class UserRoleModel(Base):
-    """Association utilisateur ↔ rôle."""
-
-    __tablename__ = "user_roles"
-
-    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"))
-    role: Mapped[str] = mapped_column(String(64), nullable=False)
-
-    user: Mapped["UserModel"] = relationship("UserModel", back_populates="roles")
-
-    __table_args__ = (UniqueConstraint("user_id", "role", name="uq_user_role"),)
 
 
 class PasswordResetTokenModel(Base):

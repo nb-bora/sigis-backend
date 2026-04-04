@@ -57,13 +57,13 @@ def test_request_password_reset_public(client: TestClient) -> None:
                 "full_name": "A B",
                 "phone_number": "699000001",
                 "password": "pass1234",
-                "roles": [],
+                "role": "INSPECTOR",
             },
         ),
         ("GET", "/v1/users", None),
         ("GET", f"/v1/users/{uuid4()}", None),
         ("PATCH", f"/v1/users/{uuid4()}", {"full_name": "X"}),
-        ("PATCH", f"/v1/users/{uuid4()}/roles", {"roles": []}),
+        ("PATCH", f"/v1/users/{uuid4()}/roles", {"role": "INSPECTOR"}),
         (
             "POST",
             "/v1/establishments",
@@ -204,6 +204,6 @@ def test_patch_other_profile_forbidden_without_admin(client: TestClient, uid: st
 
 
 def test_patch_admin_fields_forbidden_without_admin(client: TestClient, uid: str) -> None:
-    """is_active et roles sont réservés aux admins — l'absence de rôle admin retourne 403."""
+    """is_active et role sont réservés aux admins — l'absence de rôle admin retourne 403."""
     r = client.patch(f"/v1/users/{uid}", json={"is_active": False}, headers={"X-User-Id": uid})
     assert r.status_code == 403, r.text

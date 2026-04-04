@@ -21,7 +21,7 @@ class RegisterUserCommand:
     full_name: str
     phone_number: str  # accepte tout format; validé dans le use case
     password: str
-    roles: list[Role]
+    role: Role
 
 
 @dataclass
@@ -71,7 +71,7 @@ class RegisterUser:
                 full_name=cmd.full_name,
                 phone_number=phone_vo.e164,
                 hashed_password=pwd_context.hash(cmd.password),
-                roles=cmd.roles,
+                role=cmd.role,
                 is_active=True,
                 created_at=now,
             )
@@ -81,6 +81,6 @@ class RegisterUser:
         await self._email_service.send_welcome(
             to_email=user.email,
             full_name=user.full_name,
-            roles=[r.value for r in user.roles],
+            role=user.role.value,
         )
         return RegisterUserResult(user_id=user.id)

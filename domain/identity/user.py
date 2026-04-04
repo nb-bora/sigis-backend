@@ -24,7 +24,7 @@ class User:
     full_name: str
     phone_number: str  # stocké en E.164 : +237XXXXXXXXX
     hashed_password: str
-    roles: list[Role]
+    role: Role
     is_active: bool
     created_at: datetime
     updated_at: datetime | None = field(default=None)

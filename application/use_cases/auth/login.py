@@ -25,11 +25,7 @@ class LoginResult:
     access_token: str
     token_type: str = "bearer"
     user_id: uuid.UUID = None  # type: ignore[assignment]
-    roles: list[str] = None  # type: ignore[assignment]
-
-    def __post_init__(self) -> None:
-        if self.roles is None:
-            self.roles = []
+    role: str = ""
 
 
 class LoginUser:
@@ -59,7 +55,7 @@ class LoginUser:
         payload = {
             "sub": str(user.id),
             "email": user.email,
-            "roles": [r.value for r in user.roles],
+            "role": user.role.value,
             "exp": expire,
         }
         token = jwt.encode(
@@ -70,5 +66,5 @@ class LoginUser:
         return LoginResult(
             access_token=token,
             user_id=user.id,
-            roles=[r.value for r in user.roles],
+            role=user.role.value,
         )

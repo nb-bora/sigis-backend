@@ -43,12 +43,12 @@ class EmailService:
 
     # ── méthodes publiques ────────────────────────────────────────────────
 
-    async def send_welcome(self, *, to_email: str, full_name: str, roles: list[str]) -> None:
+    async def send_welcome(self, *, to_email: str, full_name: str, role: str) -> None:
         body = self._render(
             "welcome.html",
             full_name=full_name,
             email=to_email,
-            roles=roles,
+            role=role,
             frontend_url=self._settings.frontend_url,
             year=datetime.now(UTC).year,
         )

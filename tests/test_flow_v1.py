@@ -29,7 +29,7 @@ def _run_flow(client: TestClient) -> None:
             "full_name": "Inspecteur Test",
             "phone_number": phone_national,
             "password": "pass1234",
-            "roles": ["INSPECTOR"],
+            "role": "INSPECTOR",
         },
         headers={"X-User-Id": str(admin)},
     )

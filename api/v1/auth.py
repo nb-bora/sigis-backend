@@ -61,7 +61,7 @@ router = APIRouter(prefix="/auth", tags=["Authentification"])
 - `full_name` — prénom et nom complets
 - `phone_number` — numéro camerounais valide (mobile ou fixe, format national ou +237)
 - `password` — mot de passe (8 caractères minimum)
-- `roles` — liste de rôles à attribuer (défaut : `INSPECTOR`)
+- `role` — rôle unique à attribuer (défaut : `INSPECTOR`)
 
 **Workflow** :
 1. Validation du numéro de téléphone selon le PNN ART 2014 (9 chiffres)
@@ -90,7 +90,7 @@ async def register(
                 full_name=body.full_name,
                 phone_number=body.phone_number,
                 password=body.password,
-                roles=body.roles,
+                role=body.role,
             )
         )
     except InvalidPhoneNumber as exc:
@@ -119,7 +119,7 @@ async def register(
 2. Vérification du mot de passe (bcrypt)
 3. Vérification que le compte est actif
 4. Génération d'un JWT signé avec la clé secrète (`HS256`)
-   — le payload contient `sub` (user_id), `email`, `roles`, `exp`
+   — le payload contient `sub` (user_id), `email`, `role`, `exp`
 
 **Alternatives** :
 - Utilisez le header `Authorization: Bearer <token>` sur toutes les routes protégées.
@@ -148,7 +148,7 @@ async def login(
     return LoginResponse(
         access_token=result.access_token,
         user_id=result.user_id,
-        roles=result.roles,
+        role=result.role,
     )
 
 

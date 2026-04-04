@@ -71,14 +71,18 @@ def _extract_user_id(payload: dict) -> UUID:
     return UUID(sub)
 
 
-def _extract_roles(payload: dict) -> list[Role]:
-    result = []
-    for r in payload.get("roles", []):
+def _extract_role_from_payload(payload: dict) -> Role | None:
+    """Un seul rôle par utilisateur ; accepte l'ancienne clé JWT ``roles`` (1er élément)."""
+    raw = payload.get("role")
+    if raw and isinstance(raw, str) and raw in Role._value2member_map_:
+        return Role(raw)
+    legacy = payload.get("roles")
+    if isinstance(legacy, list) and legacy:
         try:
-            result.append(Role(r))
+            return Role(legacy[0])
         except ValueError:
             pass
-    return result
+    return None
 
 
 # ── CurrentUserDep ────────────────────────────────────────────────────────
@@ -120,11 +124,10 @@ class RequirePermissionDep:
 
     Workflow :
     1. Extrait et vérifie le JWT Bearer
-    2. Récupère les rôles de l'utilisateur (depuis le payload JWT)
+    2. Récupère le rôle unique de l'utilisateur (clé JWT ``role`` ou ancienne ``roles``)
     3. Interroge la table ``role_permissions`` pour obtenir les permissions
-       effectives de chaque rôle (prend en compte les surcharges admin)
-    4. Vérifie que la permission requise est présente dans l'union des
-       permissions des rôles de l'utilisateur
+       effectives de ce rôle
+    4. Vérifie que la permission requise est présente
 
     Usage :
         @router.post("/...", dependencies=[Depends(RequirePermissionDep(Permission.XXX))])
@@ -151,7 +154,8 @@ class RequirePermissionDep:
             )
 
         payload = _decode_token(credentials.credentials, settings)
-        roles = _extract_roles(payload)
+        role = _extract_role_from_payload(payload)
+        roles = [role] if role is not None else []
 
         # Récupère les permissions effectives depuis la base
         factory = request.app.state.session_factory
@@ -186,31 +190,31 @@ class RequireRolesDep:
                 headers={"WWW-Authenticate": "Bearer"},
             )
         payload = _decode_token(credentials.credentials, settings)
-        user_roles = {Role(r) for r in payload.get("roles", []) if r in Role._value2member_map_}
-        if not (user_roles & self._required):
+        ur = _extract_role_from_payload(payload)
+        if ur is None or ur not in self._required:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Droits insuffisants pour cette opération.",
             )
 
 
-# ── CurrentUserRolesDep ───────────────────────────────────────────────────
+# ── CurrentUserRoleDep ──────────────────────────────────────────────────────
 
 
-class CurrentUserRolesDep:
-    """Retourne l'ensemble des rôles de l'utilisateur courant depuis le JWT."""
+class CurrentUserRoleDep:
+    """Rôle unique (JWT) ; ``None`` si bypass dev ``X-User-Id`` sans JWT."""
 
     async def __call__(
         self,
         settings: Annotated[Settings, Depends(get_settings_dep)],
         credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)] = None,
         x_user_id: Annotated[str | None, Header(alias="X-User-Id")] = None,
-    ) -> set[Role]:
+    ) -> Role | None:
         if credentials is not None:
             payload = _decode_token(credentials.credentials, settings)
-            return set(_extract_roles(payload))
+            return _extract_role_from_payload(payload)
         if x_user_id and settings.is_dev:
-            return set()  # bypass dev : pas de rôles → accès de base uniquement
+            return None
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentification requise.",
@@ -224,4 +228,4 @@ SettingsDep = Annotated[Settings, Depends(get_settings_dep)]
 UoW = Annotated[SqlAlchemyUnitOfWork, Depends(get_uow)]
 EmailDep = Annotated[EmailService, Depends(get_email_service)]
 UserId = Annotated[UUID, Depends(CurrentUserDep())]
-UserRoles = Annotated[set[Role], Depends(CurrentUserRolesDep())]
+UserRole = Annotated[Role | None, Depends(CurrentUserRoleDep())]

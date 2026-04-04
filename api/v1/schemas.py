@@ -246,9 +246,9 @@ class RegisterBody(BaseModel):
         ),
     )
     password: str = Field(..., min_length=8, description="Mot de passe (8 caractères minimum).")
-    roles: list[Role] = Field(
-        default=[Role.INSPECTOR],
-        description="Liste des rôles assignés à l'utilisateur.",
+    role: Role = Field(
+        default=Role.INSPECTOR,
+        description="Rôle unique assigné à l'utilisateur.",
     )
 
 
@@ -261,7 +261,7 @@ class LoginResponse(BaseModel):
     access_token: str = Field(..., description="JWT Bearer à inclure dans l'en-tête Authorization.")
     token_type: str = Field(default="bearer", description="Type de jeton (toujours 'bearer').")
     user_id: UUID = Field(..., description="Identifiant unique de l'utilisateur authentifié.")
-    roles: list[str] = Field(..., description="Liste des rôles de l'utilisateur.")
+    role: str = Field(..., description="Rôle unique de l'utilisateur.")
 
 
 class ChangePasswordBody(BaseModel):
@@ -297,7 +297,7 @@ class UserResponse(BaseModel):
     phone_number: str = Field(
         ..., description="Numéro de téléphone en format E.164 (+237XXXXXXXXX)."
     )
-    roles: list[str] = Field(..., description="Rôles attribués.")
+    role: str = Field(..., description="Rôle attribué.")
     is_active: bool = Field(..., description="Statut du compte (actif / désactivé).")
     created_at: str = Field(..., description="Date de création du compte (ISO 8601 UTC).")
 
@@ -312,6 +312,12 @@ class UpdateUserBody(BaseModel):
     is_active: bool | None = Field(
         None, description="Activer (true) ou désactiver (false) le compte."
     )
-    roles: list[Role] | None = Field(
-        None, description="Nouvelle liste de rôles (remplace l'existante)."
+    role: Role | None = Field(
+        None, description="Nouveau rôle (remplace le rôle actuel ; réservé aux admins)."
     )
+
+
+class UpdateUserRoleBody(BaseModel):
+    """Corps pour PATCH ``/users/{id}/roles`` — un seul rôle."""
+
+    role: Role = Field(..., description="Nouveau rôle de l'utilisateur.")
