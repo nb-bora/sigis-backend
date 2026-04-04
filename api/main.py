@@ -65,9 +65,9 @@ def create_app() -> FastAPI:
             routes=app.routes,
             description=app.description,
         )
-        openapi_schema.setdefault("components", {}).setdefault("schemas", {})[
-            "ErrorResponse"
-        ] = ErrorResponse.model_json_schema()
+        openapi_schema.setdefault("components", {}).setdefault("schemas", {})["ErrorResponse"] = (
+            ErrorResponse.model_json_schema()
+        )
         app.openapi_schema = openapi_schema
         return app.openapi_schema
 

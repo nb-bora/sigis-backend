@@ -22,11 +22,17 @@ def upgrade() -> None:
     op.add_column("establishments", sa.Column("minesec_code", sa.String(length=64), nullable=True))
     op.add_column(
         "establishments",
-        sa.Column("establishment_type", sa.String(length=64), nullable=False, server_default="other"),
+        sa.Column(
+            "establishment_type", sa.String(length=64), nullable=False, server_default="other"
+        ),
     )
-    op.add_column("establishments", sa.Column("contact_email", sa.String(length=320), nullable=True))
+    op.add_column(
+        "establishments", sa.Column("contact_email", sa.String(length=320), nullable=True)
+    )
     op.add_column("establishments", sa.Column("contact_phone", sa.String(length=32), nullable=True))
-    op.add_column("establishments", sa.Column("territory_code", sa.String(length=64), nullable=True))
+    op.add_column(
+        "establishments", sa.Column("territory_code", sa.String(length=64), nullable=True)
+    )
     op.add_column("establishments", sa.Column("parent_establishment_id", sa.Uuid(), nullable=True))
     op.add_column(
         "establishments",
@@ -104,7 +110,9 @@ def upgrade() -> None:
         "exception_requests",
         sa.Column("sla_due_at", sa.DateTime(timezone=True), nullable=True),
     )
-    op.add_column("exception_requests", sa.Column("attachment_url", sa.String(length=1024), nullable=True))
+    op.add_column(
+        "exception_requests", sa.Column("attachment_url", sa.String(length=1024), nullable=True)
+    )
     op.create_foreign_key(
         "fk_exception_assigned_to",
         "exception_requests",

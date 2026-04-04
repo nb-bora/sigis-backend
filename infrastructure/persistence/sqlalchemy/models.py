@@ -215,7 +215,9 @@ class MissionOutcomeModel(Base):
     __tablename__ = "mission_outcomes"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    mission_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("missions.id"), unique=True)
+    mission_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("missions.id"), unique=True
+    )
     summary: Mapped[str] = mapped_column(Text, nullable=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     compliance_level: Mapped[str | None] = mapped_column(String(32), nullable=True)

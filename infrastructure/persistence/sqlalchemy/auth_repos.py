@@ -78,7 +78,9 @@ class UserAuthRepositoryImpl:
 
     async def list_page(self, offset: int, limit: int) -> tuple[list[User], int]:
         base = select(UserModel)
-        total = (await self._session.execute(select(func.count()).select_from(base.subquery()))).scalar_one()
+        total = (
+            await self._session.execute(select(func.count()).select_from(base.subquery()))
+        ).scalar_one()
         stmt = _with_roles(select(UserModel).order_by(UserModel.created_at.desc()))
         stmt = stmt.offset(offset).limit(limit)
         rows = (await self._session.execute(stmt)).scalars().all()

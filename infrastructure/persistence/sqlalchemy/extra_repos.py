@@ -209,8 +209,15 @@ class AuditLogRepositoryImpl:
 
     async def list_page(self, offset: int, limit: int) -> tuple[list[AuditLogEntry], int]:
         q = select(AuditLogModel)
-        total = (await self._session.execute(select(func.count()).select_from(q.subquery()))).scalar_one()
-        q = select(AuditLogModel).order_by(AuditLogModel.created_at.desc()).offset(offset).limit(limit)
+        total = (
+            await self._session.execute(select(func.count()).select_from(q.subquery()))
+        ).scalar_one()
+        q = (
+            select(AuditLogModel)
+            .order_by(AuditLogModel.created_at.desc())
+            .offset(offset)
+            .limit(limit)
+        )
         result = await self._session.execute(q)
         rows = [audit_log_to_domain(r) for r in result.scalars().all()]
         return rows, int(total)

@@ -96,7 +96,9 @@ class ExceptionRequestRepository(Protocol):
         status: str | None = None,
     ) -> tuple[list[ExceptionRequest], int]: ...
 
-    async def update_status(self, exception_id: UUID, new_status: ExceptionRequestStatus) -> None: ...
+    async def update_status(
+        self, exception_id: UUID, new_status: ExceptionRequestStatus
+    ) -> None: ...
 
 
 class UserRepository(Protocol):
