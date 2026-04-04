@@ -19,107 +19,97 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    op.add_column("establishments", sa.Column("minesec_code", sa.String(length=64), nullable=True))
-    op.add_column(
-        "establishments",
-        sa.Column(
-            "establishment_type", sa.String(length=64), nullable=False, server_default="other"
-        ),
-    )
-    op.add_column(
-        "establishments", sa.Column("contact_email", sa.String(length=320), nullable=True)
-    )
-    op.add_column("establishments", sa.Column("contact_phone", sa.String(length=32), nullable=True))
-    op.add_column(
-        "establishments", sa.Column("territory_code", sa.String(length=64), nullable=True)
-    )
-    op.add_column("establishments", sa.Column("parent_establishment_id", sa.Uuid(), nullable=True))
-    op.add_column(
-        "establishments",
-        sa.Column("designated_host_user_id", sa.Uuid(), nullable=True),
-    )
-    op.add_column(
-        "establishments",
-        sa.Column("geometry_validated_at", sa.DateTime(timezone=True), nullable=True),
-    )
-    op.add_column(
-        "establishments",
-        sa.Column("geometry_validated_by_user_id", sa.Uuid(), nullable=True),
-    )
-    op.create_foreign_key(
-        "fk_establishments_parent",
-        "establishments",
-        "establishments",
-        ["parent_establishment_id"],
-        ["id"],
-    )
-    op.create_foreign_key(
-        "fk_establishments_designated_host",
-        "establishments",
-        "users",
-        ["designated_host_user_id"],
-        ["id"],
-    )
-    op.create_foreign_key(
-        "fk_establishments_geom_validated_by",
-        "establishments",
-        "users",
-        ["geometry_validated_by_user_id"],
-        ["id"],
-    )
+    # SQLite : FK / contraintes sur table existante → batch_alter_table (copie/recréation).
+    with op.batch_alter_table("establishments", schema=None) as batch_op:
+        batch_op.add_column(sa.Column("minesec_code", sa.String(length=64), nullable=True))
+        batch_op.add_column(
+            sa.Column(
+                "establishment_type", sa.String(length=64), nullable=False, server_default="other"
+            ),
+        )
+        batch_op.add_column(
+            sa.Column("contact_email", sa.String(length=320), nullable=True),
+        )
+        batch_op.add_column(sa.Column("contact_phone", sa.String(length=32), nullable=True))
+        batch_op.add_column(
+            sa.Column("territory_code", sa.String(length=64), nullable=True),
+        )
+        batch_op.add_column(sa.Column("parent_establishment_id", sa.Uuid(), nullable=True))
+        batch_op.add_column(
+            sa.Column("designated_host_user_id", sa.Uuid(), nullable=True),
+        )
+        batch_op.add_column(
+            sa.Column("geometry_validated_at", sa.DateTime(timezone=True), nullable=True),
+        )
+        batch_op.add_column(
+            sa.Column("geometry_validated_by_user_id", sa.Uuid(), nullable=True),
+        )
+        batch_op.create_foreign_key(
+            "fk_establishments_parent",
+            "establishments",
+            ["parent_establishment_id"],
+            ["id"],
+        )
+        batch_op.create_foreign_key(
+            "fk_establishments_designated_host",
+            "users",
+            ["designated_host_user_id"],
+            ["id"],
+        )
+        batch_op.create_foreign_key(
+            "fk_establishments_geom_validated_by",
+            "users",
+            ["geometry_validated_by_user_id"],
+            ["id"],
+        )
 
-    op.add_column(
-        "missions",
-        sa.Column("designated_host_user_id", sa.Uuid(), nullable=True),
-    )
-    op.add_column("missions", sa.Column("objective", sa.Text(), nullable=True))
-    op.add_column("missions", sa.Column("plan_reference", sa.String(length=256), nullable=True))
-    op.add_column(
-        "missions",
-        sa.Column("requires_approval", sa.Boolean(), nullable=False, server_default="0"),
-    )
-    op.add_column("missions", sa.Column("cancellation_reason", sa.Text(), nullable=True))
-    op.add_column("missions", sa.Column("cancelled_at", sa.DateTime(timezone=True), nullable=True))
-    op.add_column("missions", sa.Column("cancelled_by_user_id", sa.Uuid(), nullable=True))
-    op.add_column("missions", sa.Column("previous_mission_id", sa.Uuid(), nullable=True))
-    op.create_foreign_key(
-        "fk_missions_designated_host",
-        "missions",
-        "users",
-        ["designated_host_user_id"],
-        ["id"],
-    )
-    op.create_foreign_key(
-        "fk_missions_cancelled_by",
-        "missions",
-        "users",
-        ["cancelled_by_user_id"],
-        ["id"],
-    )
-    op.create_foreign_key(
-        "fk_missions_previous",
-        "missions",
-        "missions",
-        ["previous_mission_id"],
-        ["id"],
-    )
+    with op.batch_alter_table("missions", schema=None) as batch_op:
+        batch_op.add_column(sa.Column("designated_host_user_id", sa.Uuid(), nullable=True))
+        batch_op.add_column(sa.Column("objective", sa.Text(), nullable=True))
+        batch_op.add_column(sa.Column("plan_reference", sa.String(length=256), nullable=True))
+        batch_op.add_column(
+            sa.Column("requires_approval", sa.Boolean(), nullable=False, server_default="0"),
+        )
+        batch_op.add_column(sa.Column("cancellation_reason", sa.Text(), nullable=True))
+        batch_op.add_column(
+            sa.Column("cancelled_at", sa.DateTime(timezone=True), nullable=True),
+        )
+        batch_op.add_column(sa.Column("cancelled_by_user_id", sa.Uuid(), nullable=True))
+        batch_op.add_column(sa.Column("previous_mission_id", sa.Uuid(), nullable=True))
+        batch_op.create_foreign_key(
+            "fk_missions_designated_host",
+            "users",
+            ["designated_host_user_id"],
+            ["id"],
+        )
+        batch_op.create_foreign_key(
+            "fk_missions_cancelled_by",
+            "users",
+            ["cancelled_by_user_id"],
+            ["id"],
+        )
+        batch_op.create_foreign_key(
+            "fk_missions_previous",
+            "missions",
+            ["previous_mission_id"],
+            ["id"],
+        )
 
-    op.add_column("exception_requests", sa.Column("assigned_to_user_id", sa.Uuid(), nullable=True))
-    op.add_column("exception_requests", sa.Column("internal_comment", sa.Text(), nullable=True))
-    op.add_column(
-        "exception_requests",
-        sa.Column("sla_due_at", sa.DateTime(timezone=True), nullable=True),
-    )
-    op.add_column(
-        "exception_requests", sa.Column("attachment_url", sa.String(length=1024), nullable=True)
-    )
-    op.create_foreign_key(
-        "fk_exception_assigned_to",
-        "exception_requests",
-        "users",
-        ["assigned_to_user_id"],
-        ["id"],
-    )
+    with op.batch_alter_table("exception_requests", schema=None) as batch_op:
+        batch_op.add_column(sa.Column("assigned_to_user_id", sa.Uuid(), nullable=True))
+        batch_op.add_column(sa.Column("internal_comment", sa.Text(), nullable=True))
+        batch_op.add_column(
+            sa.Column("sla_due_at", sa.DateTime(timezone=True), nullable=True),
+        )
+        batch_op.add_column(
+            sa.Column("attachment_url", sa.String(length=1024), nullable=True),
+        )
+        batch_op.create_foreign_key(
+            "fk_exception_assigned_to",
+            "users",
+            ["assigned_to_user_id"],
+            ["id"],
+        )
 
     op.create_table(
         "mission_outcomes",
@@ -155,33 +145,36 @@ def downgrade() -> None:
     op.drop_table("audit_logs")
     op.drop_table("mission_outcomes")
 
-    op.drop_constraint("fk_exception_assigned_to", "exception_requests", type_="foreignkey")
-    op.drop_column("exception_requests", "attachment_url")
-    op.drop_column("exception_requests", "sla_due_at")
-    op.drop_column("exception_requests", "internal_comment")
-    op.drop_column("exception_requests", "assigned_to_user_id")
+    with op.batch_alter_table("exception_requests", schema=None) as batch_op:
+        batch_op.drop_constraint("fk_exception_assigned_to", type_="foreignkey")
+        batch_op.drop_column("attachment_url")
+        batch_op.drop_column("sla_due_at")
+        batch_op.drop_column("internal_comment")
+        batch_op.drop_column("assigned_to_user_id")
 
-    op.drop_constraint("fk_missions_previous", "missions", type_="foreignkey")
-    op.drop_constraint("fk_missions_cancelled_by", "missions", type_="foreignkey")
-    op.drop_constraint("fk_missions_designated_host", "missions", type_="foreignkey")
-    op.drop_column("missions", "previous_mission_id")
-    op.drop_column("missions", "cancelled_by_user_id")
-    op.drop_column("missions", "cancelled_at")
-    op.drop_column("missions", "cancellation_reason")
-    op.drop_column("missions", "requires_approval")
-    op.drop_column("missions", "plan_reference")
-    op.drop_column("missions", "objective")
-    op.drop_column("missions", "designated_host_user_id")
+    with op.batch_alter_table("missions", schema=None) as batch_op:
+        batch_op.drop_constraint("fk_missions_previous", type_="foreignkey")
+        batch_op.drop_constraint("fk_missions_cancelled_by", type_="foreignkey")
+        batch_op.drop_constraint("fk_missions_designated_host", type_="foreignkey")
+        batch_op.drop_column("previous_mission_id")
+        batch_op.drop_column("cancelled_by_user_id")
+        batch_op.drop_column("cancelled_at")
+        batch_op.drop_column("cancellation_reason")
+        batch_op.drop_column("requires_approval")
+        batch_op.drop_column("plan_reference")
+        batch_op.drop_column("objective")
+        batch_op.drop_column("designated_host_user_id")
 
-    op.drop_constraint("fk_establishments_geom_validated_by", "establishments", type_="foreignkey")
-    op.drop_constraint("fk_establishments_designated_host", "establishments", type_="foreignkey")
-    op.drop_constraint("fk_establishments_parent", "establishments", type_="foreignkey")
-    op.drop_column("establishments", "geometry_validated_by_user_id")
-    op.drop_column("establishments", "geometry_validated_at")
-    op.drop_column("establishments", "designated_host_user_id")
-    op.drop_column("establishments", "parent_establishment_id")
-    op.drop_column("establishments", "territory_code")
-    op.drop_column("establishments", "contact_phone")
-    op.drop_column("establishments", "contact_email")
-    op.drop_column("establishments", "establishment_type")
-    op.drop_column("establishments", "minesec_code")
+    with op.batch_alter_table("establishments", schema=None) as batch_op:
+        batch_op.drop_constraint("fk_establishments_geom_validated_by", type_="foreignkey")
+        batch_op.drop_constraint("fk_establishments_designated_host", type_="foreignkey")
+        batch_op.drop_constraint("fk_establishments_parent", type_="foreignkey")
+        batch_op.drop_column("geometry_validated_by_user_id")
+        batch_op.drop_column("geometry_validated_at")
+        batch_op.drop_column("designated_host_user_id")
+        batch_op.drop_column("parent_establishment_id")
+        batch_op.drop_column("territory_code")
+        batch_op.drop_column("contact_phone")
+        batch_op.drop_column("contact_email")
+        batch_op.drop_column("establishment_type")
+        batch_op.drop_column("minesec_code")
