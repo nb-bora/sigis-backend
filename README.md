@@ -158,6 +158,8 @@ Variables d’environnement (préfixe **`SIGIS_`**, voir `.env.example`) :
 | `SIGIS_CORS_ORIGINS` | `http://localhost:3000`, `https://sigis-lime.vercel.app` | Origines CORS autorisées (liste séparée par des virgules) |
 | `SIGIS_DATABASE_ECHO` | `false` | Journaliser les requêtes SQL (debug) |
 
+**CORS en production (Render, etc.)** : si le front (Vercel) reçoit une erreur sur le **preflight** `OPTIONS` (**400** avec un corps du type `Disallowed CORS origin`), alors la variable **`SIGIS_CORS_ORIGINS`** côté hébergeur **ne contient pas** l’URL exacte du site (schéma + hôte, sans chemin), par ex. `https://sigis-lime.vercel.app`. Une valeur du type `http://localhost:3000` seule **remplace** le défaut du code : il faut lister **toutes** les origines nécessaires, séparées par des virgules. Au démarrage, l’API journalise la liste effective des origines CORS pour vérification.
+
 ---
 
 ## API REST (`/v1`)

@@ -1,3 +1,4 @@
+import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -106,6 +107,11 @@ def create_app() -> FastAPI:
         )
 
     origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
+    _log = logging.getLogger(__name__)
+    if origins:
+        _log.info("CORS: origines autorisées (%d) : %s", len(origins), ", ".join(origins))
+    else:
+        _log.info("CORS: aucune origine explicite → allow_origins=* (credentials désactivés)")
     # CORS: allow_credentials=True est incompatible avec allow_origins=["*"].
     # Si aucune origine n'est configurée (développement sans .env), on désactive
     # les credentials pour rester conforme à la spec CORS et éviter une erreur
