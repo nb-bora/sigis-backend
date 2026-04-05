@@ -127,6 +127,8 @@ Dépendances optionnelles :
 
 - **`[postgres]`** : `asyncpg`, `geoalchemy2` pour un déploiement PostgreSQL / PostGIS.
 
+Le projet épingle **bcrypt avant la 4.1** : les versions 4.1 et suivantes de la librairie `bcrypt` ne sont pas compatibles avec **passlib** 1.7.x (échec ou **500** sur `POST /v1/auth/login` lors du hachage ou de la vérification). Après `git pull`, relancer `pip install -e ".[dev]"` pour réaligner l’environnement.
+
 ---
 
 ## Exécution locale
