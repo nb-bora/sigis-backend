@@ -153,7 +153,7 @@ Variables d’environnement (préfixe **`SIGIS_`**, voir `.env.example`) :
 |----------|--------|-------------|
 | `SIGIS_DATABASE_URL` | `sqlite+aiosqlite:///./sigis.db` | SQLite async en dev ; en prod : `postgresql+asyncpg://user:pass@hôte:5432/base` |
 | `SIGIS_API_PREFIX` | `/v1` | Préfixe des routes API |
-| `SIGIS_CORS_ORIGINS` | `http://localhost:3000` | Origines CORS autorisées (liste séparée par des virgules) |
+| `SIGIS_CORS_ORIGINS` | `http://localhost:3000`, `https://sigis-lime.vercel.app` | Origines CORS autorisées (liste séparée par des virgules) |
 | `SIGIS_DATABASE_ECHO` | `false` | Journaliser les requêtes SQL (debug) |
 
 ---
