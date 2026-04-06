@@ -54,7 +54,9 @@ class EstablishmentRepositoryImpl:
         territory_code: str | None = None,
         name_q: str | None = None,
     ) -> dict[str, int]:
-        q = select(EstablishmentModel.establishment_type, func.count()).select_from(EstablishmentModel)
+        q = select(EstablishmentModel.establishment_type, func.count()).select_from(
+            EstablishmentModel
+        )
         if territory_code is not None:
             q = q.where(EstablishmentModel.territory_code == territory_code)
         if name_q:

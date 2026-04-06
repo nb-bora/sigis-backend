@@ -38,7 +38,9 @@ class BootstrapFullResponse(BaseModel):
         description="Lignes ajoutées pour couvrir tout le catalogue ``Permission`` (souvent 0 si déjà couvert)."
     )
     roles: list[str] = Field(description="Rôles applicatifs (énumération, matrice en base).")
-    permission_catalog_size: int = Field(description="Nombre de permissions dans le catalogue code.")
+    permission_catalog_size: int = Field(
+        description="Nombre de permissions dans le catalogue code."
+    )
     default_password: str = Field(description="Mot de passe commun des comptes démo créés.")
     accounts: list[SeedDemoUserItem]
 
@@ -102,6 +104,7 @@ async def seed_demo_users(request: Request, uow: UoW) -> SeedDemoUsersResponse:
     return SeedDemoUsersResponse(
         default_password=pwd,
         accounts=[
-            SeedDemoUserItem(role=r.role, email=r.email, status=r.status, detail=r.detail) for r in rows
+            SeedDemoUserItem(role=r.role, email=r.email, status=r.status, detail=r.detail)
+            for r in rows
         ],
     )

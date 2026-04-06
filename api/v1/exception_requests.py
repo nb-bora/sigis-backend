@@ -89,7 +89,9 @@ async def list_exception_requests(
     created_from: datetime | None = Query(
         default=None, description="Créés à partir de cette date (inclus)."
     ),
-    created_to: datetime | None = Query(default=None, description="Créés jusqu'à cette date (inclus)."),
+    created_to: datetime | None = Query(
+        default=None, description="Créés jusqu'à cette date (inclus)."
+    ),
     message_q: str | None = Query(
         default=None, description="Recherche insensible à la casse dans le texte du message."
     ),

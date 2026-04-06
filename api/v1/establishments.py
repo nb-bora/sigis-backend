@@ -90,7 +90,9 @@ async def list_establishments(
     uow: UoW,
     _user: UserId,
     pagination: PageParams = Depends(),
-    territory_code: str | None = Query(default=None, description="Filtre exact sur le code territoire."),
+    territory_code: str | None = Query(
+        default=None, description="Filtre exact sur le code territoire."
+    ),
     name_q: str | None = Query(
         default=None,
         description="Recherche insensible à la casse sur le nom officiel (contient).",

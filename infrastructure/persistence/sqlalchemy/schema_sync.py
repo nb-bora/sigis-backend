@@ -61,9 +61,7 @@ def ensure_users_role_column(connection: Connection) -> None:
     dialect = connection.dialect.name
     if dialect == "sqlite":
         connection.execute(
-            text(
-                "ALTER TABLE users ADD COLUMN role VARCHAR(64) NOT NULL DEFAULT 'INSPECTOR'"
-            )
+            text("ALTER TABLE users ADD COLUMN role VARCHAR(64) NOT NULL DEFAULT 'INSPECTOR'")
         )
     else:
         connection.execute(

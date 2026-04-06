@@ -24,7 +24,12 @@ SEED_DEFAULT_PASSWORD = "Changeme@2026"
 _SEED_ROWS: tuple[tuple[Role, str, str, str], ...] = (
     (Role.SUPER_ADMIN, "super.admin@sigis.seed", "Super Admin (seed)", "650000001"),
     (Role.NATIONAL_ADMIN, "national.admin@sigis.seed", "National Admin (seed)", "650000002"),
-    (Role.REGIONAL_SUPERVISOR, "regional.supervisor@sigis.seed", "Regional Supervisor (seed)", "650000003"),
+    (
+        Role.REGIONAL_SUPERVISOR,
+        "regional.supervisor@sigis.seed",
+        "Regional Supervisor (seed)",
+        "650000003",
+    ),
     (Role.INSPECTOR, "inspector.seed@sigis.seed", "Inspecteur (seed)", "650000004"),
     (Role.HOST, "host.seed@sigis.seed", "Hôte (seed)", "650000005"),
 )

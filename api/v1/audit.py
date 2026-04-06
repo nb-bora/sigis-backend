@@ -40,11 +40,19 @@ class AuditListFilters:
             None,
             description="Recherche sur l’action, le type de ressource, l’identifiant, request_id ou le JSON de charge utile.",
         ),
-        action: str | None = Query(None, description="Filtrer sur une action exacte (ex. mission.approve)."),
-        resource_type: str | None = Query(None, description="Filtrer sur un type de ressource (ex. mission)."),
+        action: str | None = Query(
+            None, description="Filtrer sur une action exacte (ex. mission.approve)."
+        ),
+        resource_type: str | None = Query(
+            None, description="Filtrer sur un type de ressource (ex. mission)."
+        ),
         actor_user_id: UUID | None = Query(None, description="Filtrer sur l’UUID de l’acteur."),
-        created_from: datetime | None = Query(None, description="Inclure les entrées à partir de cette date/heure (UTC)."),
-        created_to: datetime | None = Query(None, description="Inclure les entrées jusqu’à cette date/heure (UTC)."),
+        created_from: datetime | None = Query(
+            None, description="Inclure les entrées à partir de cette date/heure (UTC)."
+        ),
+        created_to: datetime | None = Query(
+            None, description="Inclure les entrées jusqu’à cette date/heure (UTC)."
+        ),
     ) -> None:
         self.q = q
         self.action = action

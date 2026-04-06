@@ -123,9 +123,19 @@ class AccessLogMiddleware(BaseHTTPMiddleware):
 class TelemetryEvent:
     __slots__ = (
         "id",
-        "ts", "kind", "method", "path", "status_code", "duration_ms",
-        "user_id", "request_id", "client_ip", "user_agent",
-        "action", "resource", "meta",
+        "ts",
+        "kind",
+        "method",
+        "path",
+        "status_code",
+        "duration_ms",
+        "user_id",
+        "request_id",
+        "client_ip",
+        "user_agent",
+        "action",
+        "resource",
+        "meta",
     )
 
     def __init__(
@@ -264,7 +274,13 @@ class TelemetryStore:
         items = list(self._buf)
         http_items = [e for e in items if e.kind == "http"]
         if not http_items:
-            return {"total_requests": 0, "error_rate_pct": 0, "avg_duration_ms": 0, "p95_duration_ms": 0, "buffer_size": 0}
+            return {
+                "total_requests": 0,
+                "error_rate_pct": 0,
+                "avg_duration_ms": 0,
+                "p95_duration_ms": 0,
+                "buffer_size": 0,
+            }
         errors = [e for e in http_items if e.status_code and e.status_code >= 400]
         durations = sorted([e.duration_ms for e in http_items if e.duration_ms is not None])
         p95_idx = max(0, int(len(durations) * 0.95) - 1)

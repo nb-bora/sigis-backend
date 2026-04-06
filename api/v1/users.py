@@ -70,7 +70,9 @@ async def list_users(
         description="Recherche insensible à la casse sur le nom, l’e-mail ou le téléphone.",
     ),
     role: Role | None = Query(None, description="Filtrer par rôle SIGIS."),
-    is_active: bool | None = Query(None, description="Filtrer par statut du compte (actif / inactif)."),
+    is_active: bool | None = Query(
+        None, description="Filtrer par statut du compte (actif / inactif)."
+    ),
 ) -> Page[UserResponse]:
     users, total = await uow.users.list_page(
         pagination.skip,
