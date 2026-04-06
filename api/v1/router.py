@@ -11,6 +11,7 @@ from api.v1 import (
     reports,
     roles,
     site_visits,
+    telemetry,
     users,
 )
 
@@ -26,3 +27,4 @@ api_router.include_router(site_visits.router)
 api_router.include_router(exception_requests.router)
 api_router.include_router(reports.router)
 api_router.include_router(audit.router)
+api_router.include_router(telemetry.router)

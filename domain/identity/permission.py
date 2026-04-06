@@ -59,3 +59,5 @@ class Permission(StrEnum):
 
     REPORT_READ = "REPORT_READ"
     AUDIT_READ = "AUDIT_READ"
+    # Télémétrie / observabilité (temps réel, requêtes HTTP, événements UI)
+    TELEMETRY_READ = "TELEMETRY_READ"

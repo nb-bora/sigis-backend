@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 import infrastructure.persistence.sqlalchemy.models  # noqa: F401
+from api.middleware.access_log import AccessLogMiddleware, TelemetryStore
 from api.middleware.request_id import RequestIdMiddleware
 from api.v1.router import api_router
 from common.http_errors import domain_error_to_http
@@ -44,6 +45,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
     app.state.engine = engine
     app.state.session_factory = session_factory
+    app.state.telemetry_store = TelemetryStore(maxlen=2000)
 
     # Initialise les permissions par défaut (idempotent : n'écrase pas les surcharges)
     async with SqlAlchemyUnitOfWork(session_factory) as uow:
@@ -132,7 +134,10 @@ def create_app() -> FastAPI:
             allow_methods=["*"],
             allow_headers=["*"],
         )
-    # Dernier middleware ajouté = premier exécuté sur la requête entrante (corrélation request_id).
+    # Ordre d'exécution (last-added = first-executed) :
+    #   1. RequestIdMiddleware   → pose le request_id
+    #   2. AccessLogMiddleware   → mesure la durée totale, lit le request_id
+    app.add_middleware(AccessLogMiddleware)
     app.add_middleware(RequestIdMiddleware)
     app.include_router(api_router, prefix=settings.api_prefix)
     return app

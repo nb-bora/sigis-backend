@@ -49,6 +49,7 @@ ROLE_DEFAULT_PERMISSIONS: dict[Role, set[Permission]] = {
         Permission.ROLE_READ,
         Permission.REPORT_READ,
         Permission.AUDIT_READ,
+        Permission.TELEMETRY_READ,
     },
     # ─── REGIONAL_SUPERVISOR : supervision régionale ─────────────────────
     Role.REGIONAL_SUPERVISOR: {
