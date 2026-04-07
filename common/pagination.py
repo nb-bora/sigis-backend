@@ -13,7 +13,7 @@ class PageParams(BaseModel):
     """Query `skip` / `limit` (limit plafonné côté route)."""
 
     skip: int = Field(0, ge=0, description="Nombre d'éléments à sauter.")
-    limit: int = Field(50, ge=1, le=500, description="Taille de page (max 500).")
+    limit: int = Field(50, ge=1, le=1000, description="Taille de page (max 1000).")
 
 
 class Page(BaseModel, Generic[T]):
