@@ -219,3 +219,24 @@ class AuditLogRepository(Protocol):
         created_from: datetime | None = None,
         created_to: datetime | None = None,
     ) -> tuple[list[AuditLogEntry], int]: ...
+
+
+class UsedQrJtiRepository(Protocol):
+    """Anti-rejeu QR JWT: stocke les jti consommés (use-once)."""
+
+    async def consume(self, *, jti: str, mission_id: UUID, consumed_at: datetime) -> bool:
+        """Retourne False si déjà consommé."""
+
+
+class AuditChainRepository(Protocol):
+    """Chaîne hashée tamper-evident (MVP)."""
+
+    async def append(
+        self,
+        *,
+        created_at: datetime,
+        resource_type: str,
+        resource_id: str | None,
+        entry_hash: str,
+        prev_hash: str | None,
+    ) -> None: ...

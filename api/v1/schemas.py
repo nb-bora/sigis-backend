@@ -10,6 +10,67 @@ from domain.identity.role import Role
 from domain.shared.value_objects.host_validation_mode import HostValidationMode
 
 # ---------------------------------------------------------------------------
+# Mobile offline sync (VNext)
+# ---------------------------------------------------------------------------
+
+
+class MobileGps(BaseModel):
+    lat: float = Field(..., ge=-90, le=90)
+    lon: float = Field(..., ge=-180, le=180)
+    accuracy_m: float | None = Field(default=None, ge=0)
+    provider: str | None = Field(default=None, max_length=32)
+
+
+class MobileMediaSelfie(BaseModel):
+    sha256: str = Field(
+        ..., min_length=64, max_length=64, description="SHA-256 hex du fichier selfie."
+    )
+    mime: str | None = Field(default=None, max_length=64)
+    w: int | None = Field(default=None, ge=1, le=10000)
+    h: int | None = Field(default=None, ge=1, le=10000)
+
+
+class MobileEventIn(BaseModel):
+    event_id: UUID = Field(..., description="UUID de l'événement offline (unique global).")
+    type: str = Field(
+        ..., min_length=3, max_length=32, description="CHECK_IN | HOST_CONFIRM | CHECK_OUT"
+    )
+    mission_id: UUID
+    site_visit_id: UUID | None = None
+    actor_user_id: UUID
+
+    device_id: UUID = Field(..., description="UUID device (provisionné côté mobile).")
+    device_public_key: str = Field(
+        ..., min_length=16, max_length=128, description="Clé publique Ed25519 (base64/hex)."
+    )
+
+    client_request_id: str = Field(..., min_length=8, max_length=128)
+    captured_at_client: datetime = Field(
+        ..., description="Horodatage capturé côté mobile (ISO 8601)."
+    )
+    client_tz_offset_min: int | None = Field(default=None, ge=-24 * 60, le=24 * 60)
+
+    gps: MobileGps | None = None
+    selfie: MobileMediaSelfie | None = None
+
+    prev_event_hash: str | None = Field(default=None, min_length=64, max_length=64)
+    event_hash: str = Field(..., min_length=64, max_length=64)
+    signature_ed25519: str = Field(..., min_length=32, max_length=256)
+
+
+class MobileEventResult(BaseModel):
+    event_id: UUID
+    status: str = Field(..., description="RECEIVED | VALIDATED | REJECTED | NEEDS_REVIEW")
+    site_visit_id: UUID | None = None
+    reasons: list[str] = Field(default_factory=list)
+
+
+class MobileBatchResponse(BaseModel):
+    cursor: str
+    results: list[MobileEventResult]
+
+
+# ---------------------------------------------------------------------------
 # Établissements
 # ---------------------------------------------------------------------------
 

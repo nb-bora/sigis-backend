@@ -7,12 +7,14 @@ from infrastructure.persistence.sqlalchemy.auth_repos import (
     UserAuthRepositoryImpl,
 )
 from infrastructure.persistence.sqlalchemy.extra_repos import (
+    AuditChainRepositoryImpl,
     AuditLogRepositoryImpl,
     CoPresenceEventRepositoryImpl,
     ExceptionRequestRepositoryImpl,
     IdempotencyRepositoryImpl,
     MissionOutcomeRepositoryImpl,
     PresenceProofRepositoryImpl,
+    UsedQrJtiRepositoryImpl,
 )
 from infrastructure.persistence.sqlalchemy.repositories_impl import (
     EstablishmentRepositoryImpl,
@@ -40,6 +42,8 @@ class SqlAlchemyUnitOfWork:
         self.role_permissions: RolePermissionRepositoryImpl | None = None
         self.mission_outcomes: MissionOutcomeRepositoryImpl | None = None
         self.audit_logs: AuditLogRepositoryImpl | None = None
+        self.used_qr_jti: UsedQrJtiRepositoryImpl | None = None
+        self.audit_chain: AuditChainRepositoryImpl | None = None
 
     async def __aenter__(self) -> Self:
         self.session = self._session_factory()
@@ -56,6 +60,8 @@ class SqlAlchemyUnitOfWork:
         self.role_permissions = RolePermissionRepositoryImpl(self.session)
         self.mission_outcomes = MissionOutcomeRepositoryImpl(self.session)
         self.audit_logs = AuditLogRepositoryImpl(self.session)
+        self.used_qr_jti = UsedQrJtiRepositoryImpl(self.session)
+        self.audit_chain = AuditChainRepositoryImpl(self.session)
         return self
 
     async def __aexit__(
@@ -84,3 +90,5 @@ class SqlAlchemyUnitOfWork:
         self.role_permissions = None
         self.mission_outcomes = None
         self.audit_logs = None
+        self.used_qr_jti = None
+        self.audit_chain = None

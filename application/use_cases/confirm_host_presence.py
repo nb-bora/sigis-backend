@@ -9,7 +9,13 @@ from application.ports.settings_port import AppSettings
 from application.ports.unit_of_work import UnitOfWork
 from application.use_cases.check_in_inspector import default_copresence_params
 from common.host_qr_jwt import verify_host_qr_jwt
-from domain.errors import Conflict, HostNotAuthorized, MissionApprovalRequired, NotFound
+from domain.errors import (
+    Conflict,
+    CoPresenceRejected,
+    HostNotAuthorized,
+    MissionApprovalRequired,
+    NotFound,
+)
 from domain.mission.mission import MissionStatus
 from domain.presence.models import CoPresenceEvent, PresenceProof
 from domain.shared.copresence_rules import assert_copresence_mode_a
@@ -44,6 +50,7 @@ class ConfirmHostPresence:
         assert self._uow.site_visits is not None
         assert self._uow.presence_proofs is not None
         assert self._uow.copresence_events is not None
+        assert self._uow.used_qr_jti is not None
 
         scope = f"confirm_host:{cmd.site_visit_id}"
         cached = await self._uow.idempotency.get_response(scope, cmd.client_request_id)
@@ -101,12 +108,19 @@ class ConfirmHostPresence:
 
         elif mode == HostValidationMode.QR_STATIC:
             if cmd.qr_jwt is not None:
-                verify_host_qr_jwt(
+                jti = verify_host_qr_jwt(
                     secret_key=self._settings.secret_key,
                     algorithm=self._settings.jwt_algorithm,
                     token=cmd.qr_jwt,
                     mission=mission,
                 )
+                ok = await self._uow.used_qr_jti.consume(
+                    jti=jti,
+                    mission_id=mission.id,
+                    consumed_at=now,
+                )
+                if not ok:
+                    raise CoPresenceRejected("Jeton QR déjà utilisé.", code="INVALID_QR_TOKEN")
             elif cmd.qr_token is not None and mission.host_token is not None:
                 assert_qr_token_valid(
                     cmd.qr_token,

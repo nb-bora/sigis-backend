@@ -1,6 +1,7 @@
 import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime, timedelta
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -64,6 +65,20 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                     "RBAC : %d permissions du catalogue ajoutées (lignes manquantes).",
                     repaired,
                 )
+
+    # Nettoyage best-effort (évite la croissance infinie des clés idempotence en offline)
+    # Valeur simple (open-source) : 30 jours. Pour aller plus loin, rendre configurable via Settings.
+    async with SqlAlchemyUnitOfWork(session_factory) as uow:
+        cutoff = datetime.now(UTC) - timedelta(days=30)
+        try:
+            deleted = await uow.idempotency.delete_older_than(cutoff=cutoff)
+            if deleted:
+                logging.getLogger(__name__).info(
+                    "Cleanup idempotency: %d lignes supprimées.", deleted
+                )
+        except Exception:
+            # Le nettoyage ne doit jamais empêcher le démarrage.
+            logging.getLogger(__name__).exception("Cleanup idempotency: échec.")
 
     yield
     await engine.dispose()

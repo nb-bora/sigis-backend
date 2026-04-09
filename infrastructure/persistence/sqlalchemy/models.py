@@ -236,3 +236,95 @@ class IdempotencyRecordModel(Base):
     response_body: Mapped[str] = mapped_column(Text)
 
     __table_args__ = (UniqueConstraint("scope", "client_key", name="uq_idempotency_scope_key"),)
+
+
+# ---------------------------------------------------------------------------
+# Mobile offline sync (VNext) — événements terrain offline-first
+# ---------------------------------------------------------------------------
+
+
+class MobileDeviceModel(Base):
+    __tablename__ = "mobile_devices"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
+    public_key_ed25519: Mapped[str] = mapped_column(String(128), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "public_key_ed25519", name="uq_mobile_device_user_pk"),
+    )
+
+
+class MobileEventModel(Base):
+    __tablename__ = "mobile_events"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    event_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    mission_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("missions.id"), nullable=False
+    )
+    site_visit_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("site_visits.id"), nullable=True
+    )
+    actor_user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
+    device_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("mobile_devices.id"), nullable=False
+    )
+
+    client_request_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    captured_at_client: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    received_at_server: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    gps_lat: Mapped[float | None] = mapped_column(nullable=True)
+    gps_lon: Mapped[float | None] = mapped_column(nullable=True)
+    gps_accuracy_m: Mapped[float | None] = mapped_column(nullable=True)
+    gps_provider: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
+    selfie_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    selfie_mime: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    selfie_w: Mapped[int | None] = mapped_column(nullable=True)
+    selfie_h: Mapped[int | None] = mapped_column(nullable=True)
+
+    prev_event_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    event_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    signature_ed25519: Mapped[str] = mapped_column(String(256), nullable=False)
+    raw_json: Mapped[str] = mapped_column(Text, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "device_id", "client_request_id", name="uq_mobile_event_device_client_req"
+        ),
+        UniqueConstraint("device_id", "event_hash", name="uq_mobile_event_device_hash"),
+    )
+
+
+class UsedQrJtiModel(Base):
+    __tablename__ = "used_qr_jti"
+
+    jti: Mapped[str] = mapped_column(String(64), primary_key=True)
+    mission_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("missions.id"), nullable=False
+    )
+    consumed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class AuditChainEntryModel(Base):
+    """
+    Chaîne hashée (tamper-evident) des événements clés.
+    MVP: chaîne séquentielle globale (pas par mission) — suffisant pour détecter altérations.
+    """
+
+    __tablename__ = "audit_chain_entries"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    resource_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    resource_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    prev_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    entry_hash: Mapped[str] = mapped_column(String(64), nullable=False)

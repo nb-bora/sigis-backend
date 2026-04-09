@@ -14,12 +14,14 @@ from infrastructure.persistence.mappers import (
     mission_outcome_to_domain,
 )
 from infrastructure.persistence.sqlalchemy.models import (
+    AuditChainEntryModel,
     AuditLogModel,
     CoPresenceEventModel,
     ExceptionRequestModel,
     IdempotencyRecordModel,
     MissionOutcomeModel,
     PresenceProofModel,
+    UsedQrJtiModel,
 )
 
 
@@ -232,6 +234,63 @@ class IdempotencyRepositoryImpl:
                 client_key=client_key,
                 created_at=datetime.now(UTC),
                 response_body=response_body,
+            )
+        )
+
+    async def delete_older_than(self, *, cutoff: datetime) -> int:
+        """Nettoyage best-effort des idempotency_records (prévenir croissance DB)."""
+        result = await self._session.execute(
+            select(IdempotencyRecordModel.id).where(IdempotencyRecordModel.created_at < cutoff)
+        )
+        ids = [r[0] for r in result.all()]
+        if not ids:
+            return 0
+        for rid in ids:
+            row = await self._session.get(IdempotencyRecordModel, rid)
+            if row is not None:
+                await self._session.delete(row)
+        return len(ids)
+
+
+class UsedQrJtiRepositoryImpl:
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def consume(self, *, jti: str, mission_id: UUID, consumed_at: datetime) -> bool:
+        existing = await self._session.get(UsedQrJtiModel, jti)
+        if existing is not None:
+            return False
+        self._session.add(UsedQrJtiModel(jti=jti, mission_id=mission_id, consumed_at=consumed_at))
+        return True
+
+
+class AuditChainRepositoryImpl:
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def get_last_hash(self) -> str | None:
+        q = await self._session.execute(
+            select(AuditChainEntryModel.entry_hash).order_by(AuditChainEntryModel.created_at.desc())
+        )
+        return q.scalar_one_or_none()
+
+    async def append(
+        self,
+        *,
+        created_at: datetime,
+        resource_type: str,
+        resource_id: str | None,
+        entry_hash: str,
+        prev_hash: str | None,
+    ) -> None:
+        self._session.add(
+            AuditChainEntryModel(
+                id=uuid4(),
+                created_at=created_at,
+                resource_type=resource_type,
+                resource_id=resource_id,
+                prev_hash=prev_hash,
+                entry_hash=entry_hash,
             )
         )
 

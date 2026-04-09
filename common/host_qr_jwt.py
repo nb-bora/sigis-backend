@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from uuid import uuid4
 
 import jwt
 
@@ -32,6 +33,8 @@ def create_host_qr_jwt(
         "sub": str(mission.id),
         "ht": str(mission.host_token),
         "typ": "host_qr",
+        # use-once nonce (anti-rejeu) — consommé côté serveur à la confirmation hôte
+        "jti": uuid4().hex,
         "iat": int(now.timestamp()),
         "exp": int(exp.timestamp()),
     }
@@ -44,14 +47,14 @@ def verify_host_qr_jwt(
     algorithm: str,
     token: str,
     mission: Mission,
-) -> None:
+) -> str:
     """Vérifie le JWT QR vs mission courante et fenêtre horaire."""
     try:
         payload = jwt.decode(
             token,
             secret_key,
             algorithms=[algorithm],
-            options={"require": ["exp", "sub", "ht"]},
+            options={"require": ["exp", "sub", "ht", "jti"]},
         )
     except jwt.ExpiredSignatureError:
         raise CoPresenceRejected("Jeton QR expiré.", code="INVALID_QR_TOKEN")
@@ -65,9 +68,13 @@ def verify_host_qr_jwt(
         raise CoPresenceRejected("Mission sans host_token.", code="INVALID_QR_TOKEN")
     if payload.get("ht") != str(mission.host_token):
         raise CoPresenceRejected("Jeton QR : host_token incohérent.", code="INVALID_QR_TOKEN")
+    jti = payload.get("jti")
+    if not isinstance(jti, str) or len(jti) < 8:
+        raise CoPresenceRejected("Jeton QR : jti manquant.", code="INVALID_QR_TOKEN")
     nw = datetime.now(UTC)
     ws, we = mission.window_start, mission.window_end
     ws = ws if ws.tzinfo else ws.replace(tzinfo=UTC)
     we = we if we.tzinfo else we.replace(tzinfo=UTC)
     if not (ws <= nw <= we):
         raise CoPresenceRejected("Mission hors fenêtre pour validation QR.", code="MISSION_EXPIRED")
+    return jti

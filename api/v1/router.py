@@ -8,6 +8,7 @@ from api.v1 import (
     exception_requests,
     health,
     missions,
+    mobile,
     reports,
     roles,
     site_visits,
@@ -24,6 +25,7 @@ api_router.include_router(roles.router)
 api_router.include_router(establishments.router)
 api_router.include_router(missions.router)
 api_router.include_router(site_visits.router)
+api_router.include_router(mobile.router)
 api_router.include_router(exception_requests.router)
 api_router.include_router(reports.router)
 api_router.include_router(audit.router)

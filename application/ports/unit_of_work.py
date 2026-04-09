@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Protocol
 
 from application.ports.repositories import (
+    AuditChainRepository,
     AuditLogRepository,
     CoPresenceEventRepository,
     EstablishmentRepository,
@@ -15,6 +16,7 @@ from application.ports.repositories import (
     PasswordResetTokenRepository,
     PresenceProofRepository,
     SiteVisitRepository,
+    UsedQrJtiRepository,
     UserRepository,
 )
 
@@ -31,6 +33,8 @@ class UnitOfWork(Protocol):
     reset_tokens: PasswordResetTokenRepository
     mission_outcomes: MissionOutcomeRepository
     audit_logs: AuditLogRepository
+    used_qr_jti: UsedQrJtiRepository
+    audit_chain: AuditChainRepository
 
     async def __aenter__(self) -> UnitOfWork: ...
 
