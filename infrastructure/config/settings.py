@@ -21,7 +21,7 @@ class Settings(BaseSettings):
 
     env: str = "development"
     api_prefix: str = "/v1"
-    cors_origins: str = "http://localhost:3000,https://sigis-lime.vercel.app"
+    cors_origins: str = "http://localhost:3000,https://sigis-lime.vercel.app,http://localhost:8083"
     database_url: str = Field(default_factory=_default_sqlite_database_url)
     database_echo: bool = False
     # En production : mettre à false et utiliser `alembic upgrade head`

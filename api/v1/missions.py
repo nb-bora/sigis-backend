@@ -211,6 +211,7 @@ async def missions_summary(
 **Workflow nominal :**
 1. Le serveur charge la mission.
 2. Il retourne ses attributs complets (établissement, inspecteur, fenêtre, statut, host_token).
+3. Les champs ``inspector_full_name`` et ``designated_host_full_name`` sont ajoutés lorsque les comptes existent (lecture serveur, sans appel séparé ``GET /users`` côté client).
 
 **Cas d'exception :**
 - `404` : Mission introuvable (`NOT_FOUND`).
@@ -226,7 +227,22 @@ async def get_mission(
     mission = await uow.missions.get_by_id(mission_id)
     if mission is None:
         raise NotFound("Mission introuvable.")
-    return _mission_dict(mission)
+    d = _mission_dict(mission)
+    assert uow.users is not None
+    try:
+        insp = await uow.users.get_by_id(mission.inspector_id)
+        d["inspector_full_name"] = insp.full_name
+    except NotFound:
+        d["inspector_full_name"] = None
+    if mission.designated_host_user_id is not None:
+        try:
+            host = await uow.users.get_by_id(mission.designated_host_user_id)
+            d["designated_host_full_name"] = host.full_name
+        except NotFound:
+            d["designated_host_full_name"] = None
+    else:
+        d["designated_host_full_name"] = None
+    return d
 
 
 # ---------------------------------------------------------------------------

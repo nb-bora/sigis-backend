@@ -124,8 +124,13 @@ def create_app() -> FastAPI:
         )
 
     origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
+    allow_all_origins = "*" in origins
+    if allow_all_origins:
+        origins = []
     _log = logging.getLogger(__name__)
-    if origins:
+    if allow_all_origins:
+        _log.info("CORS: allow_origins=* (credentials désactivés)")
+    elif origins:
         _log.info("CORS: origines autorisées (%d) : %s", len(origins), ", ".join(origins))
     else:
         _log.info("CORS: aucune origine explicite → allow_origins=* (credentials désactivés)")
@@ -133,7 +138,15 @@ def create_app() -> FastAPI:
     # Si aucune origine n'est configurée (développement sans .env), on désactive
     # les credentials pour rester conforme à la spec CORS et éviter une erreur
     # de navigateur.
-    if origins:
+    if allow_all_origins:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_credentials=False,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+    elif origins:
         app.add_middleware(
             CORSMiddleware,
             allow_origins=origins,
