@@ -100,7 +100,11 @@ jobs:
       - name: Run pytest with coverage (min 50%)
         run: |
           pytest \
-            --cov=domain,application,infrastructure,api,common \
+            --cov=domain \
+            --cov=application \
+            --cov=infrastructure \
+            --cov=api \
+            --cov=common \
             --cov-report=term-missing \
             --cov-report=xml \
             --cov-fail-under=50 \
@@ -108,8 +112,9 @@ jobs:
             --color=yes
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
+          token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml
           flags: unittests-py${{ matrix.python-version }}
           name: codecov-py${{ matrix.python-version }}
