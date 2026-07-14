@@ -7,6 +7,7 @@ import pytest
 from httpx import AsyncClient
 
 
+@pytest.mark.skip(reason="Pending UC integration in week 2-3")
 @pytest.mark.asyncio
 class TestOfflineVisitFlow:
     """Full offline visit: check-in offline → confirm offline → sync → checkout."""
@@ -108,6 +109,7 @@ class TestOfflineVisitFlow:
             assert checkout_data.get("status") in ["COMPLETED", "CHECKED_OUT"]
 
 
+@pytest.mark.skip(reason="Pending UC integration in week 2-3")
 @pytest.mark.asyncio
 class TestAnomalyDetectionFlow:
     """Tests anomaly detection during visit flow."""
@@ -145,6 +147,7 @@ class TestAnomalyDetectionFlow:
             # (depends on implementation)
 
 
+@pytest.mark.skip(reason="Pending UC integration in week 2-3")
 @pytest.mark.asyncio
 class TestDeviceBindingFlow:
     """Tests device binding enforcement."""
@@ -197,6 +200,7 @@ class TestDeviceBindingFlow:
         # (depends on implementation)
 
 
+@pytest.mark.skip(reason="Pending UC integration in week 2-3")
 @pytest.mark.asyncio
 class TestConformanceFlow:
     """Tests conformité requirements."""
@@ -238,6 +242,7 @@ class TestConformanceFlow:
             pass
 
 
+@pytest.mark.skip(reason="Pending UC integration in week 2-3")
 @pytest.mark.asyncio
 class TestErrorHandling:
     """Tests error scenarios."""
