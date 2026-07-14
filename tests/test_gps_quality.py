@@ -1,6 +1,5 @@
 """Tests GPS quality scoring."""
 
-
 from domain.shared.gps_quality import GpsScore, score_gps_accuracy
 
 

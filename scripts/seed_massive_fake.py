@@ -348,7 +348,11 @@ async def main() -> None:
                 inspector_ids.append(uid)
             elif role == Role.HOST.value:
                 host_ids.append(uid)
-            elif role in (Role.SUPER_ADMIN.value, Role.NATIONAL_ADMIN.value, Role.REGIONAL_SUPERVISOR.value):
+            elif role in (
+                Role.SUPER_ADMIN.value,
+                Role.NATIONAL_ADMIN.value,
+                Role.REGIONAL_SUPERVISOR.value,
+            ):
                 admin_ids.append(uid)
 
             fn = FIRST_NAMES[i % len(FIRST_NAMES)]
@@ -402,7 +406,9 @@ async def main() -> None:
         print("Aucun inspecteur généré — impossible de créer des missions.", file=sys.stderr)
         raise SystemExit(3)
     if not host_ids:
-        print("Aucun hôte généré — les établissements n'auront pas d'hôte désigné.", file=sys.stderr)
+        print(
+            "Aucun hôte généré — les établissements n'auront pas d'hôte désigné.", file=sys.stderr
+        )
 
     print(f"Utilisateurs : {len(all_user_ids)} (inspecteurs : {len(inspector_ids)}).")
 
@@ -510,7 +516,12 @@ async def main() -> None:
                 cancelled_by = None
                 if ms == MissionStatus.CANCELLED.value:
                     cancel_reason = random.choice(
-                        ("Météo", "Indisponibilité établissement", "Report administratif", "Urgence terrain")
+                        (
+                            "Météo",
+                            "Indisponibilité établissement",
+                            "Report administratif",
+                            "Urgence terrain",
+                        )
                     )
                     cancelled_at = ws + timedelta(minutes=g.randint(30, 300))
                     cancelled_by = random.choice(admin_ids) if admin_ids else None
@@ -626,7 +637,9 @@ async def main() -> None:
                             "mission_id": mid,
                             "author_user_id": insp,
                             "created_at": _random_ts(),
-                            "status": random.choice(("new", "acknowledged", "resolved", "escalated")),
+                            "status": random.choice(
+                                ("new", "acknowledged", "resolved", "escalated")
+                            ),
                             "message": random.choice(
                                 (
                                     "Retard dû aux intempéries",
@@ -677,7 +690,9 @@ async def main() -> None:
                             "id": uuid4(),
                             "created_at": _random_ts(),
                             "actor_user_id": random.choice(admin_ids) if admin_ids else insp,
-                            "action": random.choice(("MISSION_UPDATE", "VISIT_CHECKIN", "USER_LOGIN")),
+                            "action": random.choice(
+                                ("MISSION_UPDATE", "VISIT_CHECKIN", "USER_LOGIN")
+                            ),
                             "resource_type": "mission",
                             "resource_id": str(mid),
                             "payload_json": json.dumps({"seed": True, "mission_id": str(mid)}),

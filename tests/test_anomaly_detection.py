@@ -57,15 +57,11 @@ class TestVisitDurationValidation:
         checked_out = datetime(2026, 7, 14, 14, 8, tzinfo=UTC)  # 8 min
 
         # Min 10 min
-        anomalies = validate_visit_duration(
-            checked_in, checked_out, min_duration_minutes=10
-        )
+        anomalies = validate_visit_duration(checked_in, checked_out, min_duration_minutes=10)
         assert anomalies is not None
 
         # Min 5 min
-        anomalies = validate_visit_duration(
-            checked_in, checked_out, min_duration_minutes=5
-        )
+        anomalies = validate_visit_duration(checked_in, checked_out, min_duration_minutes=5)
         assert anomalies is None
 
 
@@ -146,7 +142,7 @@ class TestGpsCloneDetection:
         anomalies = detect_gps_clone_scenario(
             inspector_id=UUID("00000000-0000-0000-0000-000000000001"),
             prev_locations=prev_locations,
-            current_lat=13.1250, # ~1m away
+            current_lat=13.1250,  # ~1m away
             current_lon=8.4560,
             current_time=datetime(2026, 7, 14, 14, 0, 30, tzinfo=UTC),
             max_radius_meters=50.0,
