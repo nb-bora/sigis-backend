@@ -1,11 +1,9 @@
 """Anomaly detection — 5+ règles pour détecter fraude."""
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from uuid import UUID
-
-from domain.errors import DomainError
 
 
 class AnomalyType(StrEnum):
@@ -38,12 +36,12 @@ class Anomaly:
     entity_type: str  # "site_visit" | "presence_proof"
     entity_id: UUID
     inspector_id: UUID | None = None
-    detected_at: datetime = None  # type: ignore
+    detected_at: datetime | None = None
 
     def __post_init__(self) -> None:
         """Set detected_at si absent."""
         if self.detected_at is None:
-            object.__setattr__(self, "detected_at", datetime.utcnow())
+            object.__setattr__(self, "detected_at", datetime.now(UTC))
 
 
 def validate_visit_duration(

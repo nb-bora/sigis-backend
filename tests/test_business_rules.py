@@ -11,13 +11,13 @@ from domain.errors import (
     InvariantViolation,
 )
 from domain.shared.copresence_rules import CoPresenceParams, assert_copresence_mode_a
+from domain.shared.value_objects.host_validation_mode import HostValidationMode
 from domain.site_visit.site_visit import SiteVisit, SiteVisitStatus
 from domain.site_visit.transitions import (
     check_out,
     mark_copresence_ok,
     start_check_in,
 )
-from domain.shared.value_objects.host_validation_mode import HostValidationMode
 
 
 class TestSiteVisitTransitions:

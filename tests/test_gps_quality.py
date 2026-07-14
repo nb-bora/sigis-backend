@@ -1,6 +1,5 @@
 """Tests GPS quality scoring."""
 
-import pytest
 
 from domain.shared.gps_quality import GpsScore, score_gps_accuracy
 

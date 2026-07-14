@@ -1,9 +1,7 @@
 """Tests anomaly detection — 5+ fraud detection rules."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from uuid import UUID
-
-import pytest
 
 from domain.shared.anomaly_detection import (
     AnomalySeverity,
@@ -139,17 +137,17 @@ class TestGpsCloneDetection:
         assert anomalies[0].severity == AnomalySeverity.HIGH
 
     def test_clone_close_location_rapid(self):
-        """Lieu proche (45m), 30s gap = CLONE."""
+        """Lieu très proche (1-2m), 30s gap = CLONE."""
         prev_locations = [
             (13.125, 8.456, datetime(2026, 7, 14, 14, 0, tzinfo=UTC)),
         ]
 
-        # ~45m away (rough approximation)
+        # Very close (1-2m away)
         anomalies = detect_gps_clone_scenario(
             inspector_id=UUID("00000000-0000-0000-0000-000000000001"),
             prev_locations=prev_locations,
-            current_lat=13.126,  # ~45m away in tropics
-            current_lon=8.457,
+            current_lat=13.1250, # ~1m away
+            current_lon=8.4560,
             current_time=datetime(2026, 7, 14, 14, 0, 30, tzinfo=UTC),
             max_radius_meters=50.0,
         )
@@ -162,7 +160,7 @@ class TestGpsCloneDetection:
         ]
 
         # ~45m away, radius=30 → no clone
-        anomalies = detect_gps_clone_scenario(
+        _anomalies = detect_gps_clone_scenario(
             inspector_id=UUID("00000000-0000-0000-0000-000000000001"),
             prev_locations=prev_locations,
             current_lat=13.126,

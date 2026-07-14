@@ -1,6 +1,6 @@
 """Tests offline grace — client timestamps dans fenêtre mission."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 import pytest
 

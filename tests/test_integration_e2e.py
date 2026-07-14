@@ -1,14 +1,10 @@
 """Tests intégration E2E — full offline flow."""
 
-import json
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
 from httpx import AsyncClient
-
-from api.main import app
-from infrastructure.persistence.sqlalchemy.session import get_session
 
 
 @pytest.mark.asyncio
@@ -21,7 +17,6 @@ class TestOfflineVisitFlow:
         inspector_id = str(uuid4())
         host_id = str(uuid4())
         mission_id = str(uuid4())
-        establishment_id = str(uuid4())
 
         # Mission window 14h–16h
         window_start = datetime(2026, 7, 14, 14, 0, tzinfo=UTC)
@@ -79,7 +74,7 @@ class TestOfflineVisitFlow:
         assert checkin_data.get("geofence_status") in ["OK", "PROBABLE"]
 
         # 2. Host confirm OFFLINE à 14h15 (before check-in, but within grace)
-        confirm_response = await client.post(
+        _confirm_response = await client.post(
             f"/v1/site-visits/{site_visit_id}/host-confirmation",
             json={
                 "mission_id": mission_id,
@@ -119,19 +114,11 @@ class TestAnomalyDetectionFlow:
 
     async def test_too_short_visit_flagged(self, client: AsyncClient):
         """Visite < 5 min = anomaly."""
-        inspector_id = str(uuid4())
-        mission_id = str(uuid4())
-
         # Create mission (mocked)
         # ...
 
-        # Check-in à 14h00
-        checkin_time = datetime(2026, 7, 14, 14, 0, tzinfo=UTC)
-
-        # Check-out à 14h02 (2 min later)
-        checkout_time = datetime(2026, 7, 14, 14, 2, tzinfo=UTC)
-
-        # Verify: duration 2 min < 5 min → anomaly should be created
+        # Check-in à 14h00, check-out à 14h02 (2 min later)
+        # Duration 2 min < 5 min → anomaly should be created
         # (actual check depends on implementation in UC)
 
     async def test_poor_gps_quality_flagged(self, client: AsyncClient):
@@ -153,7 +140,7 @@ class TestAnomalyDetectionFlow:
 
         # Response should note poor GPS quality
         if checkin_response.status_code in [200, 201]:
-            data = checkin_response.json()
+            _data = checkin_response.json()
             # Should have gps_score indication
             # (depends on implementation)
 
@@ -193,7 +180,7 @@ class TestDeviceBindingFlow:
         device_id = "inspector-device-uuid-1"
 
         # Second check-in with SAME device_id but DIFFERENT key
-        response = await client.post(
+        _response = await client.post(
             "/v1/missions/test/check-in",
             json={
                 "latitude": 13.125,
@@ -293,6 +280,7 @@ class TestErrorHandling:
             },
             headers={"X-User-Id": inspector_id},
         )
+        print(f"response : {response}")
 
         # Should return geofence error
         # (depends on test data setup)

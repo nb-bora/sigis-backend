@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 
-@dataclass
+@dataclass(frozen=True)
 class MobileDevice:
     """Représente un device mobile de l'utilisateur.
 
